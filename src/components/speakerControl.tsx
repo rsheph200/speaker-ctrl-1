@@ -78,7 +78,7 @@ export default function SpeakerControl() {
     </div>
     
     {/* Playback Controls */}
-    <div className="flex justify-center gap-4 mt-6">
+    <div className="flex justify-center gap-6 mt-6">
       <button
         onClick={spotify.previous}
         className="bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-colors"
