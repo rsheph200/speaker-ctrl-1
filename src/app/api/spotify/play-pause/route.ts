@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { getValidSpotifyToken } from '@/lib/spotifyAuth';
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('spotify_access_token')?.value;
-
+  const accessToken = await getValidSpotifyToken();
+  
   if (!accessToken) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
