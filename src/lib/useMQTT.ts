@@ -10,6 +10,17 @@ interface MQTTState {
   source: string;
   availableSources: string[];
   health: any;
+  // ADD THIS - Spotify state
+  spotify: {
+    track: string;
+    artist: string;
+    album: string;
+    trackId: string;
+    duration: number; // in milliseconds
+    position: number; // in milliseconds
+    state: 'playing' | 'paused' | 'stopped' | 'idle';
+    volume: number;
+  };
 }
 
 export function useMQTT() {
@@ -21,14 +32,25 @@ export function useMQTT() {
     source: 'spotify',
     availableSources: ['spotify', 'line-in', 'aux', 'bluetooth'],
     health: null,
+    // INITIAL Spotify state
+    spotify: {
+      track: '',
+      artist: '',
+      album: '',
+      trackId: '',
+      duration: 0,
+      position: 0,
+      state: 'idle',
+      volume: 50,
+    },
   });
 
   useEffect(() => {
     // Connect to MQTT broker on your Pi
     const mqttClient = mqtt.connect('ws://192.168.0.199:9001/mqtt', {
-        reconnectPeriod: 1000,
-        connectTimeout: 30000,
-      });
+      reconnectPeriod: 1000,
+      connectTimeout: 30000,
+    });
 
     mqttClient.on('connect', () => {
       console.log('Connected to MQTT broker');
@@ -57,6 +79,48 @@ export function useMQTT() {
         } catch (error) {
           console.error('Failed to parse health JSON:', message, error);
         }
+      }
+      // ADD THIS - Spotify topic handlers
+      else if (topic === 'ruspeaker/spotify/track') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, track: message }
+        }));
+      } else if (topic === 'ruspeaker/spotify/artist') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, artist: message }
+        }));
+      } else if (topic === 'ruspeaker/spotify/album') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, album: message }
+        }));
+      } else if (topic === 'ruspeaker/spotify/track_id') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, trackId: message }
+        }));
+      } else if (topic === 'ruspeaker/spotify/duration') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, duration: parseInt(message) || 0 }
+        }));
+      } else if (topic === 'ruspeaker/spotify/position') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, position: parseInt(message) || 0 }
+        }));
+      } else if (topic === 'ruspeaker/spotify/state') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, state: message as any }
+        }));
+      } else if (topic === 'ruspeaker/spotify/volume') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
+        }));
       }
     });
 

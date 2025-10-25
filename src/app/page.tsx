@@ -1,5 +1,11 @@
 import SpeakerControl from "@/components/speakerControl";
+import { SpotifyNowPlaying } from "@/components/SpotifyNowPlaying";
 
 export default function Home() {
-  return <SpeakerControl />;
+  return (
+    <div>
+  <SpeakerControl />
+  <SpotifyNowPlaying />
+    </div>
+  )
 }
