@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
   const { playing } = await request.json();
 
   const endpoint = playing 
-    ? 'https://api.spotify.com/v1/me/player/pause'
-    : 'https://api.spotify.com/v1/me/player/play';
+    ? 'https://api.spotify.com/v1/me/player/play'
+    : 'https://api.spotify.com/v1/me/player/pause';
 
   const response = await fetch(endpoint, {
     method: 'PUT',
