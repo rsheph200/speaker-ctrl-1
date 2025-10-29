@@ -20,6 +20,8 @@ interface MQTTState {
     position: number; // in milliseconds
     state: 'playing' | 'paused' | 'stopped' | 'idle';
     volume: number;
+    artwork: string;
+    timestamp: number;
   };
 }
 
@@ -42,6 +44,8 @@ export function useMQTT() {
       position: 0,
       state: 'idle',
       volume: 50,
+      artwork: '',
+      timestamp: 0,
     },
   });
 
@@ -122,6 +126,17 @@ export function useMQTT() {
           spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
         }));
       }
+      else if (topic === 'ruspeaker/spotify/artwork') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, artwork: message }
+        }));
+      } else if (topic === 'ruspeaker/spotify/timestamp') {
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, timestamp: parseInt(message) || 0 }
+        }));
+      }
     });
 
     mqttClient.on('error', (error) => {
@@ -160,6 +175,41 @@ export function useMQTT() {
       client.publish('ruspeaker/command/restart', 'now');
     }
   }, [client]);
+
+  // Client-side progress tracking for smooth progress bar
+useEffect(() => {
+  if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
+    return;
+  }
+
+  const interval = setInterval(() => {
+    setState(prev => {
+      if (prev.spotify.state !== 'playing' || prev.spotify.timestamp === 0) {
+        return prev;
+      }
+
+      // Calculate elapsed time since last timestamp
+      const now = Date.now();
+      const elapsed = now - prev.spotify.timestamp;
+      const newPosition = prev.spotify.position + elapsed;
+
+      // Don't exceed duration
+      if (newPosition >= prev.spotify.duration) {
+        return {
+          ...prev,
+          spotify: { ...prev.spotify, position: prev.spotify.duration }
+        };
+      }
+
+      return {
+        ...prev,
+        spotify: { ...prev.spotify, position: newPosition }
+      };
+    });
+  }, 100); // Update every 100ms for smooth progress
+
+  return () => clearInterval(interval);
+}, [state.spotify.state, state.spotify.timestamp, state.spotify.duration]);
 
   return {
     ...state,

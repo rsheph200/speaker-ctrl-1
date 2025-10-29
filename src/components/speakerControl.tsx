@@ -12,13 +12,14 @@ export default function SpeakerControl() {
     source, 
     availableSources,
     health,
+    spotify,
     setVolume, 
     setSource,
     shutdown,
     restart 
   } = useMQTT();
 
-  const spotify = useSpotify();
+  const spotifyControl = useSpotify();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
@@ -42,34 +43,41 @@ export default function SpeakerControl() {
           <div className="text-gray-300 text-lg capitalize">{status}</div>
         </div>
 
-        {spotify.authenticated && (spotify.playing || spotify.track) && (
+        {spotify.track && spotify.state !== 'idle' && (
   <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
     <div className="flex items-center gap-3 mb-4">
       <Music className="text-purple-400" />
       <h2 className="text-xl font-semibold text-white">Now Playing</h2>
     </div>
     <div className="flex gap-4">
-      {spotify.albumArt && (
+      {/* Album Artwork from MQTT */}
+      {spotify.artwork && (
         <img 
-          src={spotify.albumArt} 
+          src={spotify.artwork} 
           alt="Album art" 
-          className="w-24 h-24 rounded-lg shadow-lg"
+          className="w-24 h-24 rounded-lg shadow-lg object-cover"
         />
       )}
       <div className="flex-1">
         <div className="text-2xl font-bold text-white mb-1">{spotify.track}</div>
         <div className="text-lg text-gray-300 mb-2">{spotify.artist}</div>
         <div className="text-sm text-gray-400">{spotify.album}</div>
-        {spotify.progress && spotify.duration && (
+        
+        {/* Progress Bar from MQTT */}
+        {spotify.duration > 0 && (
           <div className="mt-3">
             <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>{Math.floor(spotify.progress / 60000)}:{String(Math.floor((spotify.progress % 60000) / 1000)).padStart(2, '0')}</span>
-              <span>{Math.floor(spotify.duration / 60000)}:{String(Math.floor((spotify.duration % 60000) / 1000)).padStart(2, '0')}</span>
+              <span>
+                {Math.floor(spotify.position / 60000)}:{String(Math.floor((spotify.position % 60000) / 1000)).padStart(2, '0')}
+              </span>
+              <span>
+                {Math.floor(spotify.duration / 60000)}:{String(Math.floor((spotify.duration % 60000) / 1000)).padStart(2, '0')}
+              </span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-1">
               <div 
-                className="bg-purple-500 h-1 rounded-full transition-all" 
-                style={{ width: `${(spotify.progress / spotify.duration) * 100}%` }}
+                className="bg-purple-500 h-1 rounded-full transition-all duration-100" 
+                style={{ width: `${Math.min((spotify.position / spotify.duration) * 100, 100)}%` }}
               />
             </div>
           </div>
@@ -77,10 +85,10 @@ export default function SpeakerControl() {
       </div>
     </div>
     
-    {/* Playback Controls */}
+    {/* Playback Controls - keep using spotifyControl for actions */}
     <div className="flex justify-center gap-6 mt-6">
       <button
-        onClick={spotify.previous}
+        onClick={spotifyControl.previous}
         className="bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-colors"
         title="Previous track"
       >
@@ -90,11 +98,11 @@ export default function SpeakerControl() {
       </button>
       
       <button
-  onClick={spotify.playPause}
-  className="bg-purple-500 hover:bg-purple-600 text-white p-5 rounded-full transition-all shadow-lg shadow-purple-500/50 active:scale-95"
-  title={spotify.playing ? 'Pause' : 'Play'}
->
-        {spotify.playing ? (
+        onClick={spotifyControl.playPause}
+        className="bg-purple-500 hover:bg-purple-600 text-white p-5 rounded-full transition-all shadow-lg shadow-purple-500/50 active:scale-95"
+        title={spotify.state === 'playing' ? 'Pause' : 'Play'}
+      >
+        {spotify.state === 'playing' ? (
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
           </svg>
@@ -106,7 +114,7 @@ export default function SpeakerControl() {
       </button>
       
       <button
-        onClick={spotify.next}
+        onClick={spotifyControl.next}
         className="bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-colors"
         title="Next track"
       >
@@ -118,11 +126,11 @@ export default function SpeakerControl() {
   </div>
 )}
 
-{/* Login Button if not authenticated */}
-{!spotify.authenticated && (
+{/* Login Button if not authenticated - keep this */}
+{!spotifyControl.authenticated && (
   <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 text-center">
     <button
-      onClick={spotify.login}
+      onClick={spotifyControl.login}
       className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl transition-colors inline-flex items-center gap-2"
     >
       <Music size={20} />
