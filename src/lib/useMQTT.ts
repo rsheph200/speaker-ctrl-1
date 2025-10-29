@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
 
 interface MQTTState {
@@ -10,14 +10,13 @@ interface MQTTState {
   source: string;
   availableSources: string[];
   health: any;
-  // ADD THIS - Spotify state
   spotify: {
     track: string;
     artist: string;
     album: string;
     trackId: string;
-    duration: number; // in milliseconds
-    position: number; // in milliseconds
+    duration: number;
+    position: number;
     state: 'playing' | 'paused' | 'stopped' | 'idle';
     volume: number;
     artwork: string;
@@ -34,7 +33,6 @@ export function useMQTT() {
     source: 'spotify',
     availableSources: ['spotify', 'line-in', 'aux', 'bluetooth'],
     health: null,
-    // INITIAL Spotify state
     spotify: {
       track: '',
       artist: '',
@@ -49,8 +47,25 @@ export function useMQTT() {
     },
   });
 
+  // SOLUTION: Track when Spotify API commands are issued
+  const lastSpotifyApiCall = useRef<number>(0);
+  const ignoreUpdatesWindow = 2000; // 2 seconds
+
   useEffect(() => {
-    // Connect to MQTT broker on your Pi
+    // Listen for Spotify API calls from other components
+    const handleSpotifyCommand = () => {
+      lastSpotifyApiCall.current = Date.now();
+      console.log('🚫 Spotify API call detected - blocking MQTT state updates for 2s');
+    };
+
+    window.addEventListener('spotify-api-call', handleSpotifyCommand);
+    
+    return () => {
+      window.removeEventListener('spotify-api-call', handleSpotifyCommand);
+    };
+  }, []);
+
+  useEffect(() => {
     const mqttClient = mqtt.connect('ws://192.168.0.199:9001/mqtt', {
       reconnectPeriod: 1000,
       connectTimeout: 30000,
@@ -59,8 +74,6 @@ export function useMQTT() {
     mqttClient.on('connect', () => {
       console.log('Connected to MQTT broker');
       setState(prev => ({ ...prev, connected: true }));
-
-      // Subscribe to all ruspeaker topics
       mqttClient.subscribe('ruspeaker/#');
     });
 
@@ -68,7 +81,7 @@ export function useMQTT() {
       const message = payload.toString();
       console.log(`Received: ${topic} = ${message}`);
 
-      // Update state based on topic
+      // Handle non-Spotify topics normally
       if (topic === 'ruspeaker/status') {
         setState(prev => ({ ...prev, status: message }));
       } else if (topic === 'ruspeaker/volume') {
@@ -84,7 +97,21 @@ export function useMQTT() {
           console.error('Failed to parse health JSON:', message, error);
         }
       }
-      // ADD THIS - Spotify topic handlers
+      // SPOTIFY TOPICS - with blocking logic
+      else if (topic === 'ruspeaker/spotify/state') {
+        const timeSinceApiCall = Date.now() - lastSpotifyApiCall.current;
+        
+        if (timeSinceApiCall < ignoreUpdatesWindow) {
+          console.log(`⏸️ Ignoring MQTT state update (${timeSinceApiCall}ms after API call)`);
+          return; // Block this update
+        }
+        
+        setState(prev => ({ 
+          ...prev, 
+          spotify: { ...prev.spotify, state: message as any }
+        }));
+      }
+      // Other Spotify topics can update normally (they don't conflict with API commands)
       else if (topic === 'ruspeaker/spotify/track') {
         setState(prev => ({ 
           ...prev, 
@@ -115,18 +142,12 @@ export function useMQTT() {
           ...prev, 
           spotify: { ...prev.spotify, position: parseInt(message) || 0 }
         }));
-      } else if (topic === 'ruspeaker/spotify/state') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, state: message as any }
-        }));
       } else if (topic === 'ruspeaker/spotify/volume') {
         setState(prev => ({ 
           ...prev, 
           spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
         }));
-      }
-      else if (topic === 'ruspeaker/spotify/artwork') {
+      } else if (topic === 'ruspeaker/spotify/artwork') {
         setState(prev => ({ 
           ...prev, 
           spotify: { ...prev.spotify, artwork: message }
@@ -151,7 +172,6 @@ export function useMQTT() {
     };
   }, []);
 
-  // Command functions
   const setVolume = useCallback((volume: number) => {
     if (client) {
       client.publish('ruspeaker/command/volume', volume.toString());
@@ -176,40 +196,38 @@ export function useMQTT() {
     }
   }, [client]);
 
-  // Client-side progress tracking for smooth progress bar
-useEffect(() => {
-  if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
-    return;
-  }
+  // Client-side progress tracking
+  useEffect(() => {
+    if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
+      return;
+    }
 
-  const interval = setInterval(() => {
-    setState(prev => {
-      if (prev.spotify.state !== 'playing' || prev.spotify.timestamp === 0) {
-        return prev;
-      }
+    const interval = setInterval(() => {
+      setState(prev => {
+        if (prev.spotify.state !== 'playing' || prev.spotify.timestamp === 0) {
+          return prev;
+        }
 
-      // Calculate elapsed time since last timestamp
-      const now = Date.now();
-      const elapsed = now - prev.spotify.timestamp;
-      const newPosition = prev.spotify.position + elapsed;
+        const now = Date.now();
+        const elapsed = now - prev.spotify.timestamp;
+        const newPosition = prev.spotify.position + elapsed;
 
-      // Don't exceed duration
-      if (newPosition >= prev.spotify.duration) {
+        if (newPosition >= prev.spotify.duration) {
+          return {
+            ...prev,
+            spotify: { ...prev.spotify, position: prev.spotify.duration }
+          };
+        }
+
         return {
           ...prev,
-          spotify: { ...prev.spotify, position: prev.spotify.duration }
+          spotify: { ...prev.spotify, position: newPosition }
         };
-      }
+      });
+    }, 100);
 
-      return {
-        ...prev,
-        spotify: { ...prev.spotify, position: newPosition }
-      };
-    });
-  }, 100); // Update every 100ms for smooth progress
-
-  return () => clearInterval(interval);
-}, [state.spotify.state, state.spotify.timestamp, state.spotify.duration]);
+    return () => clearInterval(interval);
+  }, [state.spotify.state, state.spotify.timestamp, state.spotify.duration]);
 
   return {
     ...state,

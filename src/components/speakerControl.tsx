@@ -100,9 +100,9 @@ export default function SpeakerControl() {
       <button
         onClick={spotifyControl.playPause}
         className="bg-purple-500 hover:bg-purple-600 text-white p-5 rounded-full transition-all shadow-lg shadow-purple-500/50 active:scale-95"
-        title={spotify.state === 'playing' ? 'Pause' : 'Play'}
+        title={spotifyControl.playing ? 'Pause' : 'Play'}
       >
-        {spotify.state === 'playing' ? (
+        {spotifyControl.playing ? (
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
           </svg>
