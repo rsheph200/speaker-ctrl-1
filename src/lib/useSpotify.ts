@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 interface SpotifyState {
   authenticated: boolean;
   playing: boolean;
+  volume: number;
   track?: string;
   artist?: string;
   album?: string;
@@ -17,6 +18,7 @@ export function useSpotify() {
   const [state, setState] = useState<SpotifyState>({
     authenticated: false,
     playing: false,
+    volume: 50,
   });
   
   const lastFetchTime = useRef<number>(Date.now());
@@ -43,7 +45,13 @@ export function useSpotify() {
         const data = await res.json();
         lastFetchTime.current = Date.now();
         lastServerProgress.current = data.progress || 0;
-        setState(prev => ({ ...prev, authenticated: true, ...data }));
+        
+        setState(prev => ({
+          ...prev,
+          authenticated: true,
+          ...data,
+          volume: typeof data.volume === 'number' ? data.volume : prev.volume,
+        }));
       } catch (error) {
       }
     };
@@ -102,7 +110,12 @@ export function useSpotify() {
             const data = await res.json();
             lastFetchTime.current = Date.now();
             lastServerProgress.current = data.progress || 0;
-            setState(prev => ({ ...prev, authenticated: true, ...data }));
+            setState(prev => ({
+              ...prev,
+              authenticated: true,
+              ...data,
+              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
+            }));
           }
         } catch (error) {
           console.error('Failed to refresh state:', error);
@@ -127,7 +140,12 @@ export function useSpotify() {
             const data = await res.json();
             lastFetchTime.current = Date.now();
             lastServerProgress.current = data.progress || 0;
-            setState(prev => ({ ...prev, authenticated: true, ...data }));
+            setState(prev => ({
+              ...prev,
+              authenticated: true,
+              ...data,
+              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
+            }));
           }
         } catch (error) {
           console.error('Failed to refresh state:', error);
@@ -151,7 +169,12 @@ export function useSpotify() {
             const data = await res.json();
             lastFetchTime.current = Date.now();
             lastServerProgress.current = data.progress || 0;
-            setState(prev => ({ ...prev, authenticated: true, ...data }));
+            setState(prev => ({
+              ...prev,
+              authenticated: true,
+              ...data,
+              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
+            }));
           }
         } catch (error) {
           console.error('Failed to refresh state:', error);
@@ -162,5 +185,31 @@ export function useSpotify() {
     }
   };
 
-  return { ...state, login, playPause, next, previous };
+  const setVolume = async (volume: number) => {
+    const clamped = Math.min(Math.max(Math.round(volume), 0), 100);
+
+    // Optimistically update UI
+    setState(prev => ({ ...prev, volume: clamped }));
+
+    try {
+      const response = await fetch('/api/spotify/volume', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: clamped }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to set volume: ${response.status}`);
+      }
+
+      lastFetchTime.current = Date.now();
+      lastServerProgress.current = state.progress ?? 0;
+    } catch (error) {
+      console.error('Failed to set Spotify volume:', error);
+      // Revert to previous volume on error
+      setState(prev => ({ ...prev, volume: state.volume }));
+    }
+  };
+
+  return { ...state, login, playPause, next, previous, setVolume };
 }

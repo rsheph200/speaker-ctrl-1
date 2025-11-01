@@ -62,5 +62,6 @@ export async function GET() {
     albumArt: data.item?.album?.images?.[0]?.url,
     progress: progress,
     duration: duration,
+    volume: data.device?.volume_percent ?? null,
   });
 }

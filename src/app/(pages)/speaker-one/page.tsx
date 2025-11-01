@@ -14,7 +14,7 @@ import {
   SpeakerVolume,
   SpotifyVolumeControl,
   type NowPlayingInfo,
-} from './speaker/base';
+} from '@/components/speaker/base';
 
 function Card({ children }: { children: ReactNode }) {
   return (
@@ -69,7 +69,7 @@ function NextIcon() {
   );
 }
 
-export default function SpeakerControl() {
+export default function SpeakerOnePage() {
   const {
     connected,
     status,
@@ -122,7 +122,7 @@ export default function SpeakerControl() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
+    <div className="min-h-screen bg-gradient-to-br p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="flex flex-col items-center gap-2 text-center">
           <h1 className="text-5xl font-bold text-white">Ru Speaker</h1>

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getSpotifyRedirectUri } from '@/lib/getSpotifyRedirectUri';
 
 export async function GET() {
+  const redirectUri = getSpotifyRedirectUri();
+
   const scopes = [
     'user-read-playback-state',
     'user-read-currently-playing',
@@ -11,7 +14,7 @@ export async function GET() {
   const params = new URLSearchParams({
     client_id: process.env.SPOTIFY_CLIENT_ID!,
     response_type: 'code',
-    redirect_uri: process.env.SPOTIFY_REDIRECT_URI!,
+    redirect_uri: redirectUri,
     scope: scopes,
   });
 
