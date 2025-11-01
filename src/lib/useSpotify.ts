@@ -45,7 +45,6 @@ export function useSpotify() {
         lastServerProgress.current = data.progress || 0;
         setState(prev => ({ ...prev, authenticated: true, ...data }));
       } catch (error) {
-        console.error('Failed to fetch now playing:', error);
       }
     };
 

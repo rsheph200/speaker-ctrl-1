@@ -75,11 +75,11 @@ export default function SpeakerControl() {
               </span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-1">
-              <div 
-                className="bg-purple-500 h-1 rounded-full transition-all duration-100" 
-                style={{ width: `${Math.min((spotify.position / spotify.duration) * 100, 100)}%` }}
-              />
-            </div>
+  <div 
+    className="bg-purple-500 h-1 rounded-full transition-all duration-100" 
+    style={{ width: `${Math.min((spotify.position / spotify.duration) * 100, 100)}%` }}
+  />
+</div>
           </div>
         )}
       </div>

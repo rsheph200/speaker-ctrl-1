@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
 
 interface MQTTState {
@@ -47,23 +47,7 @@ export function useMQTT() {
     },
   });
 
-  // SOLUTION: Track when Spotify API commands are issued
-  const lastSpotifyApiCall = useRef<number>(0);
-  const ignoreUpdatesWindow = 2000; // 2 seconds
-
-  useEffect(() => {
-    // Listen for Spotify API calls from other components
-    const handleSpotifyCommand = () => {
-      lastSpotifyApiCall.current = Date.now();
-      console.log('🚫 Spotify API call detected - blocking MQTT state updates for 2s');
-    };
-
-    window.addEventListener('spotify-api-call', handleSpotifyCommand);
-    
-    return () => {
-      window.removeEventListener('spotify-api-call', handleSpotifyCommand);
-    };
-  }, []);
+  const [smoothPosition, setSmoothPosition] = useState(0);
 
   useEffect(() => {
     const mqttClient = mqtt.connect('ws://192.168.0.199:9001/mqtt', {
@@ -79,9 +63,8 @@ export function useMQTT() {
 
     mqttClient.on('message', (topic: string, payload: Buffer) => {
       const message = payload.toString();
-      console.log(`Received: ${topic} = ${message}`);
 
-      // Handle non-Spotify topics normally
+      // Non-Spotify topics
       if (topic === 'ruspeaker/status') {
         setState(prev => ({ ...prev, status: message }));
       } else if (topic === 'ruspeaker/volume') {
@@ -97,65 +80,48 @@ export function useMQTT() {
           console.error('Failed to parse health JSON:', message, error);
         }
       }
-      // SPOTIFY TOPICS - with blocking logic
-      else if (topic === 'ruspeaker/spotify/state') {
-        const timeSinceApiCall = Date.now() - lastSpotifyApiCall.current;
-        
-        if (timeSinceApiCall < ignoreUpdatesWindow) {
-          console.log(`⏸️ Ignoring MQTT state update (${timeSinceApiCall}ms after API call)`);
-          return; // Block this update
+      // USE STATE_UNIFIED - single source of truth
+      else if (topic === 'ruspeaker/spotify/state_unified') {
+        try {
+          const unified = JSON.parse(message);
+          
+          // Handle both playing and paused states
+          if (unified.current) {
+            setState(prev => ({
+              ...prev,
+              spotify: {
+                track: unified.current.track || '',
+                artist: unified.current.artist || '',
+                album: unified.current.album || '',
+                trackId: unified.current.trackId || '',
+                duration: (unified.current.duration || 0) * 1000, // Convert seconds to ms
+                position: (unified.current.position || 0) * 1000, // Convert seconds to ms
+                state: unified.current.isPlaying ? 'playing' : 'paused',
+                volume: prev.spotify.volume, // Keep existing volume
+                artwork: unified.current.albumArt || '',
+                timestamp: Date.now(), // ← Use NOW, not server timestamp
+              }
+            }));
+            
+            // Reset smooth position to actual
+            setSmoothPosition((unified.current.position || 0) * 1000);
+            
+            console.log('📊 Unified state update:', {
+              track: unified.current.track,
+              position: unified.current.position,
+              isPlaying: unified.current.isPlaying,
+              timestamp: unified.timestamp
+            });
+          }
+        } catch (error) {
+          console.error('Failed to parse state_unified:', error);
         }
-        
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, state: message as any }
-        }));
       }
-      // Other Spotify topics can update normally (they don't conflict with API commands)
-      else if (topic === 'ruspeaker/spotify/track') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, track: message }
-        }));
-      } else if (topic === 'ruspeaker/spotify/artist') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, artist: message }
-        }));
-      } else if (topic === 'ruspeaker/spotify/album') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, album: message }
-        }));
-      } else if (topic === 'ruspeaker/spotify/track_id') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, trackId: message }
-        }));
-      } else if (topic === 'ruspeaker/spotify/duration') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, duration: parseInt(message) || 0 }
-        }));
-      } else if (topic === 'ruspeaker/spotify/position') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, position: parseInt(message) || 0 }
-        }));
-      } else if (topic === 'ruspeaker/spotify/volume') {
+      // Still handle volume separately
+      else if (topic === 'ruspeaker/spotify/volume') {
         setState(prev => ({ 
           ...prev, 
           spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
-        }));
-      } else if (topic === 'ruspeaker/spotify/artwork') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, artwork: message }
-        }));
-      } else if (topic === 'ruspeaker/spotify/timestamp') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, timestamp: parseInt(message) || 0 }
         }));
       }
     });
@@ -171,6 +137,37 @@ export function useMQTT() {
       mqttClient.end();
     };
   }, []);
+
+  // Smooth progress when playing
+  useEffect(() => {
+    if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSmoothPosition(prev => {
+        const now = Date.now();
+        const timeSinceUpdate = now - state.spotify.timestamp;
+        const calculatedPosition = state.spotify.position + timeSinceUpdate;
+        
+        // Don't exceed duration
+        if (calculatedPosition >= state.spotify.duration) {
+          return state.spotify.duration;
+        }
+        
+        return calculatedPosition;
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [state.spotify.state, state.spotify.position, state.spotify.timestamp, state.spotify.duration]);
+
+  // When paused, use exact position
+  useEffect(() => {
+    if (state.spotify.state === 'paused') {
+      setSmoothPosition(state.spotify.position);
+    }
+  }, [state.spotify.state, state.spotify.position]);
 
   const setVolume = useCallback((volume: number) => {
     if (client) {
@@ -196,41 +193,12 @@ export function useMQTT() {
     }
   }, [client]);
 
-  // Client-side progress tracking
-  useEffect(() => {
-    if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setState(prev => {
-        if (prev.spotify.state !== 'playing' || prev.spotify.timestamp === 0) {
-          return prev;
-        }
-
-        const now = Date.now();
-        const elapsed = now - prev.spotify.timestamp;
-        const newPosition = prev.spotify.position + elapsed;
-
-        if (newPosition >= prev.spotify.duration) {
-          return {
-            ...prev,
-            spotify: { ...prev.spotify, position: prev.spotify.duration }
-          };
-        }
-
-        return {
-          ...prev,
-          spotify: { ...prev.spotify, position: newPosition }
-        };
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [state.spotify.state, state.spotify.timestamp, state.spotify.duration]);
-
   return {
     ...state,
+    spotify: {
+      ...state.spotify,
+      position: smoothPosition,
+    },
     setVolume,
     setSource,
     shutdown,
