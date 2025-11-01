@@ -206,9 +206,7 @@ export function useMQTT() {
           ...prev, 
           spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
         }));
-      }
-      // Still handle volume separately
-      else if (topic === 'ruspeaker/spotify/volume') {
+      } else if (topic === 'ruspeaker/spotify/artwork') {
         setState(prev => ({ 
           ...prev, 
           spotify: { ...prev.spotify, artwork: message }
@@ -259,37 +257,6 @@ export function useMQTT() {
       mqttClient.end();
     };
   }, []);
-
-  // Smooth progress when playing
-  useEffect(() => {
-    if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setSmoothPosition(prev => {
-        const now = Date.now();
-        const timeSinceUpdate = now - state.spotify.timestamp;
-        const calculatedPosition = state.spotify.position + timeSinceUpdate;
-        
-        // Don't exceed duration
-        if (calculatedPosition >= state.spotify.duration) {
-          return state.spotify.duration;
-        }
-        
-        return calculatedPosition;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [state.spotify.state, state.spotify.position, state.spotify.timestamp, state.spotify.duration]);
-
-  // When paused, use exact position
-  useEffect(() => {
-    if (state.spotify.state === 'paused') {
-      setSmoothPosition(state.spotify.position);
-    }
-  }, [state.spotify.state, state.spotify.position]);
 
   const setVolume = useCallback((volume: number) => {
     if (client) {
@@ -383,10 +350,6 @@ export function useMQTT() {
 
   return {
     ...state,
-    spotify: {
-      ...state.spotify,
-      position: smoothPosition,
-    },
     setVolume,
     setSource,
     shutdown,
