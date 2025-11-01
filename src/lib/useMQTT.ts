@@ -97,7 +97,14 @@ export function useMQTT() {
   };
 
   useEffect(() => {
-    const mqttClient = mqtt.connect('ws://192.168.0.199:9001/mqtt', {
+    const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL;
+
+    if (!brokerUrl) {
+      console.error('NEXT_PUBLIC_MQTT_URL is not defined');
+      return;
+    }
+
+    const mqttClient = mqtt.connect(brokerUrl, {
       reconnectPeriod: 1000,
       connectTimeout: 30000,
     });
