@@ -10,7 +10,6 @@ interface MQTTState {
   source: string;
   availableSources: string[];
   health: any;
-  // ADD THIS - Spotify state
   spotify: {
     track: string;
     artist: string;
@@ -37,7 +36,6 @@ export function useMQTT() {
     source: 'spotify',
     availableSources: ['spotify', 'line-in', 'aux', 'bluetooth'],
     health: null,
-    // INITIAL Spotify state
     spotify: {
       track: '',
       artist: '',
@@ -99,7 +97,6 @@ export function useMQTT() {
   };
 
   useEffect(() => {
-    // Connect to MQTT broker on your Pi
     const mqttClient = mqtt.connect('ws://192.168.0.199:9001/mqtt', {
       reconnectPeriod: 1000,
       connectTimeout: 30000,
@@ -108,16 +105,13 @@ export function useMQTT() {
     mqttClient.on('connect', () => {
       console.log('Connected to MQTT broker');
       setState(prev => ({ ...prev, connected: true }));
-
-      // Subscribe to all ruspeaker topics
       mqttClient.subscribe('ruspeaker/#');
     });
 
     mqttClient.on('message', (topic: string, payload: Buffer) => {
       const message = payload.toString();
-      console.log(`Received: ${topic} = ${message}`);
 
-      // Update state based on topic
+      // Non-Spotify topics
       if (topic === 'ruspeaker/status') {
         setState(prev => ({ ...prev, status: message }));
       } else if (topic === 'ruspeaker/volume') {
@@ -213,7 +207,8 @@ export function useMQTT() {
           spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
         }));
       }
-      else if (topic === 'ruspeaker/spotify/artwork') {
+      // Still handle volume separately
+      else if (topic === 'ruspeaker/spotify/volume') {
         setState(prev => ({ 
           ...prev, 
           spotify: { ...prev.spotify, artwork: message }
@@ -265,7 +260,37 @@ export function useMQTT() {
     };
   }, []);
 
-  // Command functions
+  // Smooth progress when playing
+  useEffect(() => {
+    if (state.spotify.state !== 'playing' || state.spotify.duration === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSmoothPosition(prev => {
+        const now = Date.now();
+        const timeSinceUpdate = now - state.spotify.timestamp;
+        const calculatedPosition = state.spotify.position + timeSinceUpdate;
+        
+        // Don't exceed duration
+        if (calculatedPosition >= state.spotify.duration) {
+          return state.spotify.duration;
+        }
+        
+        return calculatedPosition;
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [state.spotify.state, state.spotify.position, state.spotify.timestamp, state.spotify.duration]);
+
+  // When paused, use exact position
+  useEffect(() => {
+    if (state.spotify.state === 'paused') {
+      setSmoothPosition(state.spotify.position);
+    }
+  }, [state.spotify.state, state.spotify.position]);
+
   const setVolume = useCallback((volume: number) => {
     if (client) {
       client.publish('ruspeaker/command/volume', volume.toString());
@@ -358,6 +383,10 @@ export function useMQTT() {
 
   return {
     ...state,
+    spotify: {
+      ...state.spotify,
+      position: smoothPosition,
+    },
     setVolume,
     setSource,
     shutdown,

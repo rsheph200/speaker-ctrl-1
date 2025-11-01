@@ -21,7 +21,6 @@ export function useSpotify() {
     volume: 50,
   });
   
-  // Track when we last fetched to calculate smooth progress
   const lastFetchTime = useRef<number>(Date.now());
   const lastServerProgress = useRef<number>(0);
 
@@ -29,7 +28,11 @@ export function useSpotify() {
     window.location.href = '/api/spotify/auth';
   };
 
-  // Fetch now playing every 2 seconds instead of 5
+  // Helper to notify MQTT hook about API calls
+  const notifySpotifyApiCall = () => {
+    window.dispatchEvent(new Event('spotify-api-call'));
+  };
+
   useEffect(() => {
     const fetchNowPlaying = async () => {
       try {
@@ -40,8 +43,6 @@ export function useSpotify() {
         }
 
         const data = await res.json();
-        
-        // Store the server's progress and current time
         lastFetchTime.current = Date.now();
         lastServerProgress.current = data.progress || 0;
         
@@ -52,16 +53,14 @@ export function useSpotify() {
           volume: typeof data.volume === 'number' ? data.volume : prev.volume,
         }));
       } catch (error) {
-        console.error('Failed to fetch now playing:', error);
       }
     };
 
     fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, 2000); // Changed from 5000 to 2000
+    const interval = setInterval(fetchNowPlaying, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // Smooth progress ticker - updates every 100ms for smooth animation
   useEffect(() => {
     let ticker: NodeJS.Timeout | undefined;
     
@@ -72,11 +71,8 @@ export function useSpotify() {
             return prev;
           }
           
-          // Calculate how much time has passed since last server update
           const timeSinceLastFetch = Date.now() - lastFetchTime.current;
           const estimatedProgress = lastServerProgress.current + timeSinceLastFetch;
-          
-          // Clamp to duration
           const clampedProgress = Math.min(estimatedProgress, prev.duration);
           
           return {
@@ -84,7 +80,7 @@ export function useSpotify() {
             progress: clampedProgress,
           };
         });
-      }, 100); // Update every 100ms for smooth progress bar
+      }, 100);
     }
     
     return () => ticker && clearInterval(ticker);
@@ -93,6 +89,9 @@ export function useSpotify() {
   const playPause = async () => {
     try {
       const newPlayingState = !state.playing;
+      
+      // 🔥 KEY FIX: Notify MQTT to block updates BEFORE making the API call
+      notifySpotifyApiCall();
       
       // Optimistically update UI
       setState(prev => ({ ...prev, playing: newPlayingState }));
@@ -103,7 +102,7 @@ export function useSpotify() {
         body: JSON.stringify({ playing: newPlayingState }),
       });
 
-      // Refresh state after a short delay
+      // Refresh state after Spotify has had time to update
       setTimeout(async () => {
         try {
           const res = await fetch('/api/spotify/now-playing');
@@ -124,16 +123,16 @@ export function useSpotify() {
       }, 300);
     } catch (error) {
       console.error('Failed to play/pause:', error);
-      // Revert optimistic update on error
       setState(prev => ({ ...prev, playing: !prev.playing }));
     }
   };
 
   const next = async () => {
     try {
+      notifySpotifyApiCall(); // Block MQTT updates
+      
       await fetch('/api/spotify/next', { method: 'POST' });
       
-      // Immediately fetch new track info
       setTimeout(async () => {
         try {
           const res = await fetch('/api/spotify/now-playing');
@@ -159,6 +158,8 @@ export function useSpotify() {
 
   const previous = async () => {
     try {
+      notifySpotifyApiCall(); // Block MQTT updates
+      
       await fetch('/api/spotify/previous', { method: 'POST' });
       
       setTimeout(async () => {
