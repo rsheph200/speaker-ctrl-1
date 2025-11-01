@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSpotifyRedirectUri } from '@/lib/getSpotifyRedirectUri';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
+
+  const redirectUri = getSpotifyRedirectUri();
 
   if (!code) {
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: process.env.SPOTIFY_REDIRECT_URI!,
+        redirect_uri: redirectUri,
       }),
     });
 
