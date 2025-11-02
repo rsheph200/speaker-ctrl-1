@@ -53,6 +53,8 @@ export function useMQTT() {
     },
   });
 
+  const mqttDebug = process.env.NEXT_PUBLIC_MQTT_DEBUG === 'true';
+
   const toMilliseconds = (value: number) => {
     if (!Number.isFinite(value) || value <= 0) {
       return 0;
@@ -104,19 +106,48 @@ export function useMQTT() {
       return;
     }
 
+    if (mqttDebug) {
+      console.debug('[MQTT] Connecting to broker', brokerUrl);
+    }
+
     const mqttClient = mqtt.connect(brokerUrl, {
       reconnectPeriod: 1000,
       connectTimeout: 30000,
     });
 
     mqttClient.on('connect', () => {
-      console.log('Connected to MQTT broker');
+      if (mqttDebug) {
+        console.debug('[MQTT] Connected');
+      }
       setState(prev => ({ ...prev, connected: true }));
       mqttClient.subscribe('ruspeaker/#');
     });
 
+    mqttClient.on('reconnect', () => {
+      if (mqttDebug) {
+        console.debug('[MQTT] Reconnecting…');
+      }
+    });
+
+    mqttClient.on('close', () => {
+      if (mqttDebug) {
+        console.debug('[MQTT] Connection closed');
+      }
+      setState(prev => ({ ...prev, connected: false }));
+    });
+
+    mqttClient.on('offline', () => {
+      if (mqttDebug) {
+        console.debug('[MQTT] Broker offline');
+      }
+      setState(prev => ({ ...prev, connected: false }));
+    });
+
     mqttClient.on('message', (topic: string, payload: Buffer) => {
       const message = payload.toString();
+      if (mqttDebug) {
+        console.debug('[MQTT] Message', topic, message);
+      }
 
       // Non-Spotify topics
       if (topic === 'ruspeaker/status') {
@@ -254,7 +285,11 @@ export function useMQTT() {
     });
 
     mqttClient.on('error', (error) => {
-      console.error('MQTT Error:', error);
+      if (mqttDebug) {
+        console.error('[MQTT] Error', error);
+      } else {
+        console.error('MQTT Error:', error);
+      }
       setState(prev => ({ ...prev, connected: false }));
     });
 
