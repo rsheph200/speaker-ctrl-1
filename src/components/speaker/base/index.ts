@@ -10,4 +10,6 @@ export * from './SourceSelector';
 export * from './SystemHealth';
 export * from './PowerControls';
 export * from './SpotifyVolumeControl';
+export * from './Visualizer';
+export * from './CircleVisualizer';
 export * from './types';

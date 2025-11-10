@@ -1,9 +1,9 @@
-import SpeakerControl from "@/components/speakerControl";
+import SpeakerOnePage from "@/app/(pages)/speaker-one/page";
 
 export default function Home() {
   return (
     <div>
-  <SpeakerControl />
+  <SpeakerOnePage />
     </div>
   )
 }
