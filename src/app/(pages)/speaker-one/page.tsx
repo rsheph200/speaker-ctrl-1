@@ -13,6 +13,8 @@ import {
   SpeakerSystemHealth,
   SpeakerVolume,
   SpotifyVolumeControl,
+  SpeakerVisualizer,
+  CircleVisualizer,
   type NowPlayingInfo,
 } from '@/components/speaker/base';
 
@@ -136,6 +138,14 @@ export default function SpeakerOnePage() {
             descriptionLabel="State"
             className="text-lg capitalize"
           />
+        </Card>
+
+        <Card>
+          <SpeakerVisualizer />
+        </Card>
+
+        <Card>
+          <CircleVisualizer />
         </Card>
 
         {showNowPlaying && (
