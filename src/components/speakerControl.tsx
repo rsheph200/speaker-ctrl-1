@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Music } from 'lucide-react';
 
 import { useMQTT } from '@/lib/useMQTT';
@@ -86,6 +86,42 @@ export default function SpeakerControl() {
   } = useMQTT();
 
   const spotifyControl = useSpotify();
+  const pendingPlaying = spotifyControl.pendingPlaying;
+  const pendingExpiresAt = spotifyControl.pendingExpiresAt;
+  const acknowledgePendingPlaying = spotifyControl.acknowledgePendingPlaying;
+
+  useEffect(() => {
+    if (
+      typeof pendingPlaying !== 'boolean' ||
+      typeof pendingExpiresAt !== 'number' ||
+      pendingExpiresAt <= Date.now() ||
+      !acknowledgePendingPlaying
+    ) {
+      return;
+    }
+
+    const desiredState = pendingPlaying ? 'playing' : 'paused';
+    const mqttState = spotify.state;
+    const matchesDesired =
+      desiredState === 'playing'
+        ? mqttState === 'playing'
+        : mqttState === 'paused' || mqttState === 'stopped' || mqttState === 'idle';
+
+    if (matchesDesired) {
+      acknowledgePendingPlaying();
+    }
+  }, [pendingPlaying, pendingExpiresAt, acknowledgePendingPlaying, spotify.state]);
+
+  const pendingActive =
+    typeof pendingPlaying === 'boolean' &&
+    typeof pendingExpiresAt === 'number' &&
+    pendingExpiresAt > Date.now();
+
+  const resolvedState = pendingActive
+    ? pendingPlaying
+      ? 'playing'
+      : 'paused'
+    : spotify.state ?? 'idle';
 
   const nowPlayingInfo: NowPlayingInfo = {
     track: spotify.track,
@@ -94,17 +130,19 @@ export default function SpeakerControl() {
     artwork: spotify.artwork,
     durationMs: spotify.duration,
     positionMs: spotify.position,
-    state: spotifyControl.playing
-      ? 'playing'
-      : spotifyControl.playing === false && spotify.state === 'playing'
-        ? 'paused'
-        : spotify.state,
+    state: resolvedState,
   };
 
   const spotifyActions = {
     playPause: () => {
       freezeSpotifyProgress(false);
-      return spotifyControl.playPause();
+      const isMqttPlaying = spotify.state === 'playing';
+      const currentPlaying =
+        typeof spotifyControl.pendingPlaying === 'boolean'
+          ? spotifyControl.pendingPlaying
+          : isMqttPlaying;
+      const nextPlaying = !currentPlaying;
+      return spotifyControl.playPause(nextPlaying);
     },
     next: () => {
       freezeSpotifyProgress(true);

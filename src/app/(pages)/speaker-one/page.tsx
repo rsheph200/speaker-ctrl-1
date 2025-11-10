@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Music } from 'lucide-react';
 
 import { useMQTT } from '@/lib/useMQTT';
@@ -72,6 +72,8 @@ function NextIcon() {
 }
 
 export default function SpeakerOnePage() {
+  const [visualizerResetTrigger, setVisualizerResetTrigger] = useState<number | null>(null);
+
   const {
     connected,
     status,
@@ -88,6 +90,42 @@ export default function SpeakerOnePage() {
   } = useMQTT();
 
   const spotifyControl = useSpotify();
+  const pendingPlaying = spotifyControl.pendingPlaying;
+  const pendingExpiresAt = spotifyControl.pendingExpiresAt;
+  const acknowledgePendingPlaying = spotifyControl.acknowledgePendingPlaying;
+
+  useEffect(() => {
+    if (
+      typeof pendingPlaying !== 'boolean' ||
+      typeof pendingExpiresAt !== 'number' ||
+      pendingExpiresAt <= Date.now() ||
+      !acknowledgePendingPlaying
+    ) {
+      return;
+    }
+
+    const desiredState = pendingPlaying ? 'playing' : 'paused';
+    const mqttState = spotify.state;
+    const matchesDesired =
+      desiredState === 'playing'
+        ? mqttState === 'playing'
+        : mqttState === 'paused' || mqttState === 'stopped' || mqttState === 'idle';
+
+    if (matchesDesired) {
+      acknowledgePendingPlaying();
+    }
+  }, [pendingPlaying, pendingExpiresAt, acknowledgePendingPlaying, spotify.state]);
+
+  const pendingActive =
+    typeof pendingPlaying === 'boolean' &&
+    typeof pendingExpiresAt === 'number' &&
+    pendingExpiresAt > Date.now();
+
+  const resolvedState = pendingActive
+    ? pendingPlaying
+      ? 'playing'
+      : 'paused'
+    : spotify.state ?? 'idle';
 
   const nowPlayingInfo: NowPlayingInfo = {
     track: spotify.track,
@@ -96,23 +134,31 @@ export default function SpeakerOnePage() {
     artwork: spotify.artwork,
     durationMs: spotify.duration,
     positionMs: spotify.position,
-    state: spotifyControl.playing
-      ? 'playing'
-      : spotifyControl.playing === false && spotify.state === 'playing'
-        ? 'paused'
-        : spotify.state,
+    state: resolvedState,
+  };
+
+  const triggerVisualizerReset = () => {
+    setVisualizerResetTrigger(Date.now());
   };
 
   const spotifyActions = {
     playPause: () => {
       freezeSpotifyProgress(false);
-      return spotifyControl.playPause();
+      const isMqttPlaying = spotify.state === 'playing';
+      const currentPlaying =
+        typeof spotifyControl.pendingPlaying === 'boolean'
+          ? spotifyControl.pendingPlaying
+          : isMqttPlaying;
+      const nextPlaying = !currentPlaying;
+      return spotifyControl.playPause(nextPlaying);
     },
     next: () => {
+      triggerVisualizerReset();
       freezeSpotifyProgress(true);
       return spotifyControl.next();
     },
     previous: () => {
+      triggerVisualizerReset();
       freezeSpotifyProgress(true);
       return spotifyControl.previous();
     },
@@ -141,12 +187,18 @@ export default function SpeakerOnePage() {
         </Card>
 
         <Card>
-          <SpeakerVisualizer />
+          <div className="flex items-center justify-center min-h-[140px]">
+            <SpeakerVisualizer
+              artwork={spotify.artwork ?? null}
+              scale={0.25}
+              resetTrigger={visualizerResetTrigger}
+            />
+          </div>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CircleVisualizer />
-        </Card>
+        </Card> */}
 
         {showNowPlaying && (
           <Card>
