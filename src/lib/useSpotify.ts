@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 interface SpotifyState {
   authenticated: boolean;
   playing: boolean;
+  pendingPlaying: boolean | null;
+  pendingExpiresAt: number | null;
   volume: number;
   track?: string;
   artist?: string;
@@ -18,6 +20,8 @@ export function useSpotify() {
   const [state, setState] = useState<SpotifyState>({
     authenticated: false,
     playing: false,
+    pendingPlaying: null,
+    pendingExpiresAt: null,
     volume: 50,
   });
   
@@ -38,7 +42,12 @@ export function useSpotify() {
       try {
         const res = await fetch('/api/spotify/now-playing');
         if (res.status === 401) {
-          setState(prev => ({ ...prev, authenticated: false }));
+          setState(prev => ({
+            ...prev,
+            authenticated: false,
+            pendingPlaying: null,
+            pendingExpiresAt: null,
+          }));
           return;
         }
 
@@ -46,12 +55,20 @@ export function useSpotify() {
         lastFetchTime.current = Date.now();
         lastServerProgress.current = data.progress || 0;
         
-        setState(prev => ({
-          ...prev,
-          authenticated: true,
-          ...data,
-          volume: typeof data.volume === 'number' ? data.volume : prev.volume,
-        }));
+        setState(prev => {
+          const nextPlaying =
+            typeof data.playing === 'boolean' ? data.playing : prev.playing;
+          const nextVolume =
+            typeof data.volume === 'number' ? data.volume : prev.volume;
+
+          return {
+            ...prev,
+            authenticated: true,
+            ...data,
+            playing: nextPlaying,
+            volume: nextVolume,
+          };
+        });
       } catch (error) {
       }
     };
@@ -86,44 +103,89 @@ export function useSpotify() {
     return () => ticker && clearInterval(ticker);
   }, [state.playing, state.duration]);
 
-  const playPause = async () => {
-    try {
-      const newPlayingState = !state.playing;
-      
-      // 🔥 KEY FIX: Notify MQTT to block updates BEFORE making the API call
-      notifySpotifyApiCall();
-      
-      // Optimistically update UI
-      setState(prev => ({ ...prev, playing: newPlayingState }));
+  useEffect(() => {
+    if (state.pendingExpiresAt === null) {
+      return;
+    }
 
-      await fetch('/api/spotify/play-pause', {
+    const delay = Math.max(0, state.pendingExpiresAt - Date.now());
+    const timeout = window.setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        pendingPlaying: null,
+        pendingExpiresAt: null,
+      }));
+    }, delay);
+
+    return () => window.clearTimeout(timeout);
+  }, [state.pendingExpiresAt]);
+
+  const refreshNowPlaying = async (delay = 300) => {
+    setTimeout(async () => {
+      try {
+        const res = await fetch('/api/spotify/now-playing');
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        lastFetchTime.current = Date.now();
+        lastServerProgress.current = data.progress || 0;
+        setState(prev => {
+          const nextPlaying =
+            typeof data.playing === 'boolean' ? data.playing : prev.playing;
+          const nextVolume =
+            typeof data.volume === 'number' ? data.volume : prev.volume;
+
+          return {
+            ...prev,
+            authenticated: true,
+            ...data,
+            playing: nextPlaying,
+            volume: nextVolume,
+          };
+        });
+      } catch (error) {
+        console.error('Failed to refresh state:', error);
+      }
+    }, delay);
+  };
+
+  const playPause = async (targetPlaying?: boolean) => {
+    const desiredPlaying =
+      typeof targetPlaying === 'boolean' ? targetPlaying : !state.playing;
+    const previousPlaying = state.playing;
+
+    try {
+      notifySpotifyApiCall();
+      setState(prev => ({
+        ...prev,
+        playing: desiredPlaying,
+        pendingPlaying: desiredPlaying,
+        pendingExpiresAt: Date.now() + 1500,
+      }));
+
+      const response = await fetch('/api/spotify/play-pause', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playing: newPlayingState }),
+        body: JSON.stringify({ playing: desiredPlaying }),
       });
 
-      // Refresh state after Spotify has had time to update
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/spotify/now-playing');
-          if (res.ok) {
-            const data = await res.json();
-            lastFetchTime.current = Date.now();
-            lastServerProgress.current = data.progress || 0;
-            setState(prev => ({
-              ...prev,
-              authenticated: true,
-              ...data,
-              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to refresh state:', error);
-        }
-      }, 300);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Spotify play/pause failed (${response.status}): ${errorText || 'Unknown error'}`,
+        );
+      }
+
+      refreshNowPlaying(300);
     } catch (error) {
       console.error('Failed to play/pause:', error);
-      setState(prev => ({ ...prev, playing: !prev.playing }));
+      setState(prev => ({
+        ...prev,
+        playing: previousPlaying,
+        pendingPlaying: null,
+        pendingExpiresAt: null,
+      }));
     }
   };
 
@@ -131,26 +193,13 @@ export function useSpotify() {
     try {
       notifySpotifyApiCall(); // Block MQTT updates
       
-      await fetch('/api/spotify/next', { method: 'POST' });
+      const response = await fetch('/api/spotify/next', { method: 'POST' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Spotify next failed (${response.status}): ${errorText || 'Unknown error'}`);
+      }
       
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/spotify/now-playing');
-          if (res.ok) {
-            const data = await res.json();
-            lastFetchTime.current = Date.now();
-            lastServerProgress.current = data.progress || 0;
-            setState(prev => ({
-              ...prev,
-              authenticated: true,
-              ...data,
-              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to refresh state:', error);
-        }
-      }, 500);
+      refreshNowPlaying(500);
     } catch (error) {
       console.error('Failed to skip:', error);
     }
@@ -160,26 +209,15 @@ export function useSpotify() {
     try {
       notifySpotifyApiCall(); // Block MQTT updates
       
-      await fetch('/api/spotify/previous', { method: 'POST' });
+      const response = await fetch('/api/spotify/previous', { method: 'POST' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Spotify previous failed (${response.status}): ${errorText || 'Unknown error'}`,
+        );
+      }
       
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/spotify/now-playing');
-          if (res.ok) {
-            const data = await res.json();
-            lastFetchTime.current = Date.now();
-            lastServerProgress.current = data.progress || 0;
-            setState(prev => ({
-              ...prev,
-              authenticated: true,
-              ...data,
-              volume: typeof data.volume === 'number' ? data.volume : prev.volume,
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to refresh state:', error);
-        }
-      }, 500);
+      refreshNowPlaying(500);
     } catch (error) {
       console.error('Failed to go back:', error);
     }
@@ -211,5 +249,21 @@ export function useSpotify() {
     }
   };
 
-  return { ...state, login, playPause, next, previous, setVolume };
+  const acknowledgePendingPlaying = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      pendingPlaying: null,
+      pendingExpiresAt: null,
+    }));
+  }, []);
+
+  return {
+    ...state,
+    login,
+    playPause,
+    next,
+    previous,
+    setVolume,
+    acknowledgePendingPlaying,
+  };
 }

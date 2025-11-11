@@ -18,6 +18,7 @@ export function CircleVisualizer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const frameRef = useRef<VizFrame | null>(null);
+  const historyRef = useRef<number[]>([]); // Track recent peak values for adaptive normalization
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'receiving' | 'error'>('connecting');
 
   useEffect(() => {
@@ -41,38 +42,63 @@ export function CircleVisualizer({
       const frame = frameRef.current;
 
       if (frame && frame.bars.length > 0) {
-        // Calculate audio level using multiple methods for better responsiveness
         const bars = frame.bars;
         
-        // Method 1: RMS (if available and meaningful) - good for overall energy
-        const rmsLevel = frame.rms > 0 ? frame.rms : null;
-        
-        // Method 2: Average of all bars
+        // Calculate activity metrics that are independent of absolute volume
+        const peak = Math.max(...bars);
         const sum = bars.reduce((acc, val) => acc + val, 0);
         const average = sum / bars.length;
         
-        // Method 3: Peak value (highest bar) - captures transients and dynamics
-        const peak = Math.max(...bars);
+        // Peak-to-average ratio: indicates dynamics and activity (not volume-dependent)
+        const peakToAvg = average > 0 ? peak / average : 0;
         
-        // Method 4: Weighted average (emphasize higher frequencies for more sensitivity)
-        const weightedSum = bars.reduce((acc, val, idx) => {
-          const weight = 1 + (idx / bars.length) * 0.5; // Higher frequencies weighted more
-          return acc + val * weight;
-        }, 0);
-        const weightedAvg = weightedSum / bars.reduce((acc, _, idx) => acc + (1 + (idx / bars.length) * 0.5), 0);
+        // Variance: measures how spread out the frequency content is (activity indicator)
+        const variance = bars.reduce((acc, val) => acc + Math.pow(val - average, 2), 0) / bars.length;
+        const stdDev = Math.sqrt(variance);
         
-        // Combine methods: prefer RMS if available, otherwise use max of average/weighted, boosted by peak
-        const baseLevel = rmsLevel !== null ? rmsLevel : Math.max(average, weightedAvg);
-        // Boost with peak to capture transients, ensuring we get full dynamic range
-        const audioLevel = Math.min(baseLevel * 1.15 + peak * 0.25, 1);
+        // Frequency content distribution: count how many bins have significant energy
+        const threshold = average * 1.5; // Relative to current average
+        const activeBins = bars.filter(val => val > threshold).length;
+        const activityRatio = activeBins / bars.length;
         
-        // Use a gentler power curve for smoother, more responsive scaling
-        const normalized = clamp(audioLevel, 0, 1) ** 1.15;
+        // Combine activity metrics (not volume-dependent)
+        // Peak-to-avg shows dynamics, variance shows spread, activityRatio shows distribution
+        const activityScore = Math.min(
+          (peakToAvg * 0.4 + stdDev * 50 * 0.3 + activityRatio * 0.3),
+          1
+        );
+        
+        // Adaptive normalization: track recent peak values to normalize against current range
+        historyRef.current.push(peak);
+        if (historyRef.current.length > 60) { // Keep last ~1 second of data (assuming ~60fps)
+          historyRef.current.shift();
+        }
+        
+        // Calculate dynamic range from recent history
+        const recentMax = Math.max(...historyRef.current);
+        const recentMin = Math.min(...historyRef.current);
+        const recentRange = recentMax - recentMin;
+        
+        // Normalize peak value based on recent dynamic range (not absolute volume)
+        let normalizedPeak = 0;
+        if (recentRange > 0) {
+          normalizedPeak = (peak - recentMin) / recentRange;
+        } else if (peak > 0) {
+          // If no range yet, use peak relative to a small threshold
+          normalizedPeak = Math.min(peak * 100, 1);
+        }
+        
+        // Combine activity score with normalized peak for final visualization level
+        // Activity score emphasizes dynamics, normalized peak shows current position in range
+        const visualLevel = activityScore * 0.6 + normalizedPeak * 0.4;
+        
+        // Apply gentle curve for smooth visualization
+        const normalized = clamp(visualLevel, 0, 1) ** 0.9;
 
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
-        const maxRadius = Math.min(canvas.width, canvas.height) * 0.45;
-        const minRadius = maxRadius * 0.15; // Increased from 0.1 for more visible scaling
+        const maxRadius = Math.min(canvas.width, canvas.height) * 0.5;
+        const minRadius = maxRadius * 0.05; // Much smaller minimum for dramatic size variation
         const radius = minRadius + (maxRadius - minRadius) * normalized;
 
         // Create gradient for the circle

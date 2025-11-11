@@ -21,9 +21,20 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  if (response.status === 204 || response.status === 200) {
+  if (response.ok) {
     return NextResponse.json({ success: true });
   }
 
-  return NextResponse.json({ error: 'Failed' }, { status: response.status });
+  const errorText = await response.text();
+  console.error(
+    'Spotify play/pause API error:',
+    response.status,
+    response.statusText,
+    errorText,
+  );
+
+  return NextResponse.json(
+    { error: 'Failed to toggle playback', details: errorText || null },
+    { status: response.status },
+  );
 }
