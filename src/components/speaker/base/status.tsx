@@ -27,32 +27,34 @@ export function SpeakerStatus({
   disconnectedLabel = defaultDisconnectedLabel,
 }: SpeakerStatusProps) {
   const connectionLabel = connected ? connectedLabel : disconnectedLabel;
+  
+  // Build the text as a single sentence
+  const parts: string[] = [];
+  
+  if (connectionLabel) {
+    // Convert to sentence case and add period
+    const labelText = String(connectionLabel);
+    const sentenceCase = labelText.charAt(0).toUpperCase() + labelText.slice(1).toLowerCase();
+    parts.push(sentenceCase.endsWith('.') ? sentenceCase : `${sentenceCase}.`);
+  }
+  
+  if (status) {
+    // Convert to sentence case
+    const statusText = String(status);
+    const sentenceCase = statusText.charAt(0).toUpperCase() + statusText.slice(1).toLowerCase();
+    parts.push(sentenceCase);
+  }
+  
+  const text = parts.length > 0 ? parts.join(' ') : '';
 
   return (
     <section
-      className={cls('space-y-4 text-gray-300', className)}
+      className={cls('text-sm text-gray-400', className)}
       aria-live="polite"
       data-component="speaker-status"
       data-connected={connected ? 'true' : 'false'}
     >
-      {connectionLabel != null && (
-        <div className="inline-flex items-center gap-2 text-gray-300">
-          <span
-            className={connected ? 'h-2.5 w-2.5 rounded-full bg-green-400' : 'h-2.5 w-2.5 rounded-full bg-red-400'}
-          />
-          <span className="text-sm uppercase tracking-wide text-gray-400">{connectionLabel}</span>
-        </div>
-      )}
-      {status && (
-        <dl className="space-y-2">
-          <div className="space-y-1">
-            {descriptionLabel ? (
-              <dt className="text-xs uppercase tracking-wide text-gray-400">{descriptionLabel}</dt>
-            ) : null}
-            <dd className="text-lg capitalize text-white">{status}</dd>
-          </div>
-        </dl>
-      )}
+      <p>{text}</p>
     </section>
   );
 }

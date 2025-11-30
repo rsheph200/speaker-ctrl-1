@@ -12,14 +12,14 @@ interface SpeakerVisualizerProps {
   resetTrigger?: number | null;
 }
 
-const baseClass = 'flex w-full flex-col gap-3 text-gray-300';
+const baseClass = 'flex flex-col gap-3 text-gray-300';
 const defaultGradientStops = ['#1e293b', '#2563eb', '#818cf8', '#f472b6', '#818cf8', '#2563eb', '#1e293b'] as const;
 const accentPalette = ['#f97316', '#ec4899', '#fde047', '#a855f7', '#22d3ee', '#14b8a6'] as const;
 type RGB = [number, number, number];
 
 export function SpeakerVisualizer({
   className,
-  height = 140,
+  height = 40,
   artwork,
   scale = 1,
   resetTrigger = null,
@@ -240,7 +240,7 @@ export function SpeakerVisualizer({
         const gap = width * 0.01; // Increased gap for better spacing with fewer bars
         
         // Base size for bars - controls maximum width and minimum height baseline
-        const baseBarSize = 100; // Change this to adjust maximum bar width (in pixels)
+        const baseBarSize = Math.min(width, heightPx) * 0.15; // Change this to adjust maximum bar width (in pixels)
         const idleScale = 0.55; // Width/height scale when idle
         const widthScaleRange = 1 - idleScale;
         
@@ -284,7 +284,7 @@ export function SpeakerVisualizer({
           
           // Bar height extends equally above and below center
           const minHeight = baseBarSize * idleScale;
-          const maxHeight = heightPx * 0.95;
+          const maxHeight = heightPx * 1.5;
           const barHeight = Math.max(smoothed * maxHeight, minHeight);
           const halfHeight = barHeight / 2;
           
@@ -311,7 +311,7 @@ export function SpeakerVisualizer({
         // Show a centered idle line
         const centerY = canvas.height / 2;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.fillRect(0, centerY - 1, canvas.width, 2);
+        ctx.fillRect(0, centerY - 1, canvas.width, 1);
       }
 
       animationRef.current = requestAnimationFrame(draw);
@@ -362,10 +362,7 @@ export function SpeakerVisualizer({
   const statusLabel = status === 'receiving' ? 'Streaming audio data' : status === 'connected' ? 'Connected' : status === 'disconnected' ? 'Disconnected' : status === 'error' ? 'Error' : 'Connecting';
 
   return (
-    <section
-      className={[baseClass, className].filter(Boolean).join(' ')}
-      style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
-    >
+    <section className={[baseClass, className].filter(Boolean).join(' ')} >
       <canvas
         ref={canvasRef}
         className="w-full flex-1 rounded-lg"

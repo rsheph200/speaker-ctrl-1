@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { SpeakerVolume } from './Volume';
+import { SpeakerVolume } from "./volume";
 
 const cls = (...parts: Array<string | false | null | undefined>) =>
-  parts.filter(Boolean).join(' ');
+  parts.filter(Boolean).join(" ");
 
 interface SpotifyVolumeControlProps {
   volume: number;
@@ -14,8 +14,9 @@ interface SpotifyVolumeControlProps {
   disconnectedMessage?: string;
 }
 
-const defaultLabel = 'Player volume';
-const defaultDisconnectedMessage = 'Connect Spotify to manage playback volume from the web player.';
+const defaultLabel = "Player volume";
+const defaultDisconnectedMessage =
+  "Connect Spotify to manage playback volume from the web player.";
 
 export function SpotifyVolumeControl({
   volume,
@@ -26,8 +27,10 @@ export function SpotifyVolumeControl({
   disconnectedMessage = defaultDisconnectedMessage,
 }: SpotifyVolumeControlProps) {
   return (
-    <section className={cls('space-y-4 text-gray-300', className)}>
-      <p className="text-sm uppercase tracking-wide text-gray-400">Spotify Volume</p>
+    <section className={cls("space-y-4 text-gray-300", className)}>
+      <p className="text-sm uppercase tracking-wide text-gray-400">
+        Spotify Volume
+      </p>
       <SpeakerVolume
         volume={volume}
         onChange={onChange}
