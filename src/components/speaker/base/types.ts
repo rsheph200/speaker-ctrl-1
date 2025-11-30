@@ -19,5 +19,6 @@ export interface SpeakerHealth {
   memory_usage_percent?: number | string | null;
   disk_usage_percent?: number | string | null;
   wifi_signal_dbm?: number | string | null;
+  live?: string | null;
   uptime?: string | null;
 }
