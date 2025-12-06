@@ -6,6 +6,8 @@ import { useMQTT } from "@/lib/useMQTT";
 import { useSpotify } from "@/lib/useSpotify";
 import { SpeakerHeader, SpeakerFooter } from "@/components/speaker/base";
 import { SpeakerBody } from "@/components/speaker/plain/plain-body";
+import { PageBackground } from "@/components/page/PageBackground";
+import { useAppSettings } from "@/context/AppSettingsContext";
 
 export default function SpeakerOnePage() {
   const [visualizerResetTrigger, setVisualizerResetTrigger] = useState<
@@ -29,6 +31,7 @@ export default function SpeakerOnePage() {
   } = useMQTT();
 
   const spotifyControl = useSpotify();
+  const { theme } = useAppSettings();
 
   useEffect(() => {
     setMounted(true);
@@ -111,7 +114,7 @@ export default function SpeakerOnePage() {
     : 0;
 
   return (
-    <div className="h-screen" style={{ backgroundColor: "#C7C7C7" }}>
+    <PageBackground theme={theme}>
       <div className="flex flex-col mx-auto w-full h-full items-center justify-between">
         <SpeakerHeader
           health={health}
@@ -146,6 +149,6 @@ export default function SpeakerOnePage() {
 
         <SpeakerFooter connected={connected} status={status} health={health} />
       </div>
-    </div>
+    </PageBackground>
   );
 }

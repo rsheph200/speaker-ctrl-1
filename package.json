@@ -14,7 +14,7 @@
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "lucide-react": "^0.546.0",
     "mqtt": "^5.14.1",
-    "next": "15.4.6",
+    "next": "15.4.8",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

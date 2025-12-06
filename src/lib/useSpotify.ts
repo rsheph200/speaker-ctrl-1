@@ -1,8 +1,20 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import {
+  activateDummySpeaker,
+  deactivateDummySpeaker,
+  subscribeToDummySpeaker,
+  dummyLogin,
+  dummyPlayPause,
+  dummyNextTrack,
+  dummyPreviousTrack,
+  updateDummySpotifyVolume,
+  dummyAcknowledgePendingPlaying,
+} from './dummy/speakerService';
 
-interface SpotifyState {
+export interface SpotifyState {
   authenticated: boolean;
   playing: boolean;
   pendingPlaying: boolean | null;
@@ -27,8 +39,14 @@ export function useSpotify() {
   
   const lastFetchTime = useRef<number>(Date.now());
   const lastServerProgress = useRef<number>(0);
+  const { dummyMode } = useAppSettings();
 
   const login = () => {
+    if (dummyMode) {
+      dummyLogin();
+      return;
+    }
+
     window.location.href = '/api/spotify/auth';
   };
 
@@ -38,6 +56,19 @@ export function useSpotify() {
   };
 
   useEffect(() => {
+    if (dummyMode) {
+      activateDummySpeaker();
+      const unsubscribe = subscribeToDummySpeaker(next => {
+        setState(next.spotify);
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }
+
+    deactivateDummySpeaker();
+
     const fetchNowPlaying = async () => {
       try {
         const res = await fetch('/api/spotify/now-playing');
@@ -76,9 +107,13 @@ export function useSpotify() {
     fetchNowPlaying();
     const interval = setInterval(fetchNowPlaying, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [dummyMode]);
 
   useEffect(() => {
+    if (dummyMode) {
+      return;
+    }
+
     let ticker: NodeJS.Timeout | undefined;
     
     if (state.playing && typeof state.duration === 'number') {
@@ -101,7 +136,7 @@ export function useSpotify() {
     }
     
     return () => ticker && clearInterval(ticker);
-  }, [state.playing, state.duration]);
+  }, [state.playing, state.duration, dummyMode]);
 
   useEffect(() => {
     if (state.pendingExpiresAt === null) {
@@ -109,6 +144,15 @@ export function useSpotify() {
     }
 
     const delay = Math.max(0, state.pendingExpiresAt - Date.now());
+
+    if (dummyMode) {
+      const timeout = window.setTimeout(() => {
+        dummyAcknowledgePendingPlaying();
+      }, delay);
+
+      return () => window.clearTimeout(timeout);
+    }
+
     const timeout = window.setTimeout(() => {
       setState(prev => ({
         ...prev,
@@ -118,9 +162,13 @@ export function useSpotify() {
     }, delay);
 
     return () => window.clearTimeout(timeout);
-  }, [state.pendingExpiresAt]);
+  }, [state.pendingExpiresAt, dummyMode]);
 
   const refreshNowPlaying = async (delay = 300) => {
+    if (dummyMode) {
+      return;
+    }
+
     setTimeout(async () => {
       try {
         const res = await fetch('/api/spotify/now-playing');
@@ -154,6 +202,11 @@ export function useSpotify() {
     const desiredPlaying =
       typeof targetPlaying === 'boolean' ? targetPlaying : !state.playing;
     const previousPlaying = state.playing;
+
+    if (dummyMode) {
+      dummyPlayPause(desiredPlaying);
+      return;
+    }
 
     try {
       notifySpotifyApiCall();
@@ -190,6 +243,11 @@ export function useSpotify() {
   };
 
   const next = async () => {
+    if (dummyMode) {
+      dummyNextTrack();
+      return;
+    }
+
     try {
       notifySpotifyApiCall(); // Block MQTT updates
       
@@ -206,6 +264,11 @@ export function useSpotify() {
   };
 
   const previous = async () => {
+    if (dummyMode) {
+      dummyPreviousTrack();
+      return;
+    }
+
     try {
       notifySpotifyApiCall(); // Block MQTT updates
       
@@ -225,6 +288,11 @@ export function useSpotify() {
 
   const setVolume = async (volume: number) => {
     const clamped = Math.min(Math.max(Math.round(volume), 0), 100);
+
+    if (dummyMode) {
+      updateDummySpotifyVolume(clamped);
+      return;
+    }
 
     // Optimistically update UI
     setState(prev => ({ ...prev, volume: clamped }));
@@ -250,12 +318,17 @@ export function useSpotify() {
   };
 
   const acknowledgePendingPlaying = useCallback(() => {
+    if (dummyMode) {
+      dummyAcknowledgePendingPlaying();
+      return;
+    }
+
     setState(prev => ({
       ...prev,
       pendingPlaying: null,
       pendingExpiresAt: null,
     }));
-  }, []);
+  }, [dummyMode]);
 
   return {
     ...state,

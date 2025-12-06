@@ -1,9 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import {
+  activateDummySpeaker,
+  deactivateDummySpeaker,
+  subscribeToDummySpeaker,
+  updateDummySpeakerVolume,
+  updateDummySource,
+  dummyShutdown,
+  dummyRestart,
+  dummyFreezeSpotifyProgress,
+} from './dummy/speakerService';
 
-interface MQTTState {
+export interface MQTTState {
   connected: boolean;
   status: string;
   volume: number;
@@ -53,6 +64,42 @@ export function useMQTT() {
     },
   });
 
+  const { dummyMode } = useAppSettings();
+  const dummyUnsubscribeRef = useRef<(() => void) | null>(null);
+  const freezeTimeoutRef = useRef<number | null>(null);
+
+  const clearFreezeTimeout = useCallback(() => {
+    if (freezeTimeoutRef.current !== null) {
+      window.clearTimeout(freezeTimeoutRef.current);
+      freezeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleFreezeFallback = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    clearFreezeTimeout();
+    freezeTimeoutRef.current = window.setTimeout(() => {
+      freezeTimeoutRef.current = null;
+      setState(prev => {
+        if (!prev.spotify.progressFrozen) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          spotify: {
+            ...prev.spotify,
+            progressFrozen: false,
+            timestamp: Date.now(),
+          },
+        };
+      });
+    }, 2500);
+  }, [clearFreezeTimeout]);
+
   const mqttDebug = process.env.NEXT_PUBLIC_MQTT_DEBUG === 'true';
 
   const toMilliseconds = (value: number) => {
@@ -99,6 +146,33 @@ export function useMQTT() {
   };
 
   useEffect(() => {
+    if (!dummyMode) {
+      if (dummyUnsubscribeRef.current) {
+        dummyUnsubscribeRef.current();
+        dummyUnsubscribeRef.current = null;
+      }
+      deactivateDummySpeaker();
+      return;
+    }
+
+    activateDummySpeaker();
+    const unsubscribe = subscribeToDummySpeaker(next => {
+      setState(next.mqtt);
+    });
+    dummyUnsubscribeRef.current = unsubscribe;
+    setClient(null);
+
+    return () => {
+      unsubscribe();
+      dummyUnsubscribeRef.current = null;
+    };
+  }, [dummyMode]);
+
+  useEffect(() => {
+    if (dummyMode) {
+      return;
+    }
+
     const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL;
 
     if (!brokerUrl) {
@@ -234,6 +308,7 @@ export function useMQTT() {
             },
           };
         });
+        clearFreezeTimeout();
       } else if (topic === 'ruspeaker/spotify/state') {
         setState(prev => ({ 
           ...prev, 
@@ -281,6 +356,7 @@ export function useMQTT() {
             },
           };
         });
+        clearFreezeTimeout();
       }
     });
 
@@ -297,34 +373,62 @@ export function useMQTT() {
 
     return () => {
       mqttClient.end();
+      setClient(null);
     };
-  }, []);
+  }, [dummyMode]);
 
   const setVolume = useCallback((volume: number) => {
+    if (dummyMode) {
+      updateDummySpeakerVolume(volume);
+      return;
+    }
+
     if (client) {
       client.publish('ruspeaker/command/volume', volume.toString());
     }
-  }, [client]);
+  }, [client, dummyMode]);
 
   const setSource = useCallback((source: string) => {
+    if (dummyMode) {
+      updateDummySource(source);
+      return;
+    }
+
     if (client) {
       client.publish('ruspeaker/command/source', source);
     }
-  }, [client]);
+  }, [client, dummyMode]);
 
   const shutdown = useCallback(() => {
+    if (dummyMode) {
+      dummyShutdown();
+      return;
+    }
+
     if (client) {
       client.publish('ruspeaker/command/shutdown', 'now');
     }
-  }, [client]);
+  }, [client, dummyMode]);
 
   const restart = useCallback(() => {
+    if (dummyMode) {
+      dummyRestart();
+      return;
+    }
+
     if (client) {
       client.publish('ruspeaker/command/restart', 'now');
     }
-  }, [client]);
+  }, [client, dummyMode]);
 
   const freezeSpotifyProgress = useCallback((resetPosition = false) => {
+    scheduleFreezeFallback();
+
+    if (dummyMode) {
+      dummyFreezeSpotifyProgress(resetPosition);
+      return;
+    }
+
     setState(prev => ({
       ...prev,
       spotify: {
@@ -336,10 +440,14 @@ export function useMQTT() {
         serverTimestamp: null,
       },
     }));
-  }, []);
+  }, [dummyMode, scheduleFreezeFallback]);
 
   // Client-side progress tracking for smooth progress bar
   useEffect(() => {
+    if (dummyMode) {
+      return;
+    }
+
     if (
       state.spotify.state !== 'playing' ||
       state.spotify.duration === 0 ||
@@ -388,7 +496,14 @@ export function useMQTT() {
     state.spotify.timestamp,
     state.spotify.duration,
     state.spotify.progressFrozen,
+    dummyMode,
   ]);
+
+  useEffect(() => {
+    return () => {
+      clearFreezeTimeout();
+    };
+  }, [clearFreezeTimeout]);
 
   return {
     ...state,
