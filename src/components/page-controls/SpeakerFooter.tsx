@@ -65,8 +65,11 @@ function SpeakerInfoCard({
   const healthText = healthParts.length > 0 ? healthParts.join(", ") : "";
 
   return (
-    <div className="flex justify-end items-end gap-0.5 text-[9px]  text-[#909090]">
-      <SpeakerIcon color={connected ? "#34AE5F" : "#f87171"} className="h-6 w-6 mt-[1.5px]" />
+    <div className="flex justify-end items-end sm:gap-0.5 gap-1 text-[9px]  text-[#909090]">
+      <SpeakerIcon
+        color={connected ? "#34AE5F" : "#f87171"}
+        className="h-9 w-8 sm:h-6 sm:w-6 mt-[1.5px]"
+      />
       <div className="flex flex-col text-[9px]  text-[#909090] pb-0.25">
         {statusText && <span className="leading-tight">{statusText}</span>}
         {healthText && <span className="leading-tight">{healthText}</span>}
@@ -82,11 +85,21 @@ export function SpeakerFooter({
 }: SpeakerFooterProps) {
   return (
     <footer className="flex w-full justify-between p-2 text-[9px]  text-[#909090]">
-      <SpeakerInfoCard connected={connected} status={status} health={health} />
+      <div className="max-w-[45%] sm:max-w-none">
+        <SpeakerInfoCard
+          connected={connected}
+          status={status}
+          health={health}
+        />
+      </div>
 
-      <div className="flex flex-col justify-end items-end pr-0.25">
-        <p className="leading-tight">Custom audio experience services. </p>
-        <p className="leading-tight">Designed, Manufactured and produced in house.</p>
+      <div className="flex flex-col justify-end items-end pr-0.25 text-right max-w-[40%] sm:max-w-none">
+        <p className="leading-tight text-right">
+          Custom audio experience services.{" "}
+        </p>
+        <p className="leading-tight text-right">
+          Designed, Manufactured and produced in house.
+        </p>
       </div>
     </footer>
   );

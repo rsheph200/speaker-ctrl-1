@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SpeakerPowerControls } from "@/components/speaker/base";
+import { useAppSettings } from "@/context/AppSettingsContext";
 import { AEALogo } from "./assets/AEALogo";
 import { DownChevron } from "./assets/DownChevron";
 
@@ -31,10 +32,15 @@ export function SpeakerHeader({
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const themeButtonRef = useRef<HTMLButtonElement>(null);
-  const [selectedTheme, setSelectedTheme] = useState("Plain");
   const [modePanelTop, setModePanelTop] = useState(0);
   const [themePanelTop, setThemePanelTop] = useState(0);
   const [settingsPanelTop, setSettingsPanelTop] = useState(0);
+  const {
+    dummyMode,
+    toggleDummyMode,
+    theme: selectedTheme,
+    setTheme,
+  } = useAppSettings();
 
   useEffect(() => {
     if (!settingsMenuOpen) return;
@@ -239,7 +245,7 @@ export function SpeakerHeader({
                       <button
                         type="button"
                         onClick={() => {
-                          setSelectedTheme(themeOption);
+                          setTheme(themeOption as "Plain" | "Retro" | "Teen");
                           setThemeMenuOpen(false);
                         }}
                         className={`w-full rounded-xl p-3 text-left text-sm font-medium transition-all ${
@@ -310,6 +316,46 @@ export function SpeakerHeader({
                       </p>
                     </div>
                   )}
+                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-gray-300">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">
+                        Developer
+                      </p>
+                      <p className="text-sm font-semibold text-white">
+                        Dummy Data Mode
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Preview the UI without live MQTT/Spotify.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleDummyMode}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        dummyMode ? "bg-green-500" : "bg-gray-500"
+                      }`}
+                      aria-pressed={dummyMode}
+                      aria-label="Toggle dummy data mode"
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                          dummyMode ? "translate-x-5" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Status:{" "}
+                    <span
+                      className={`font-semibold ${
+                        dummyMode ? "text-green-400" : "text-gray-200"
+                      }`}
+                    >
+                      {dummyMode ? "Enabled" : "Live"}
+                    </span>
+                  </p>
+                </div>
                 <SpeakerPowerControls
                   onRestart={onRestart}
                   onShutdown={onShutdown}

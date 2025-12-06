@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { connectVisualizer, type VizFrame } from '@/lib/mqttVisualizer';
+import { getDummyVisualizerFrame } from '@/lib/dummy/visualizerFrames';
+import { useAppSettings } from '@/context/AppSettingsContext';
 
 interface SpeakerVisualizerProps {
   className?: string;
@@ -27,6 +29,7 @@ export function SpeakerVisualizer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const frameRef = useRef<VizFrame | null>(null);
+  const dummyFrameIndexRef = useRef(0);
   const historyRefs = useRef<number[][]>([[], [], [], [], [], []]); // Track recent peak values for each of 6 frequency bands
   const smoothedValuesRef = useRef<number[]>([0, 0, 0, 0, 0, 0]); // Store smoothed normalized values for each bar
   const gradientStopsRef = useRef<string[]>([...defaultGradientStops]);
@@ -38,6 +41,7 @@ export function SpeakerVisualizer({
   const pendingResetRef = useRef(false);
   const lastResetTriggerRef = useRef<number | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'receiving' | 'error'>('connecting');
+  const { dummyMode } = useAppSettings();
 
   const transitionToColor = useCallback((nextColor: RGB | null, duration = 500) => {
     if (nextColor && colorsEqual(activeColorRef.current, nextColor) && !gradientTransitionFrameRef.current) {
@@ -327,6 +331,18 @@ export function SpeakerVisualizer({
   }, []);
 
   useEffect(() => {
+    if (dummyMode) {
+      setStatus('receiving');
+      const interval = window.setInterval(() => {
+        const frame = getDummyVisualizerFrame(dummyFrameIndexRef.current++);
+        frameRef.current = frame;
+      }, 110);
+
+      return () => {
+        window.clearInterval(interval);
+      };
+    }
+
     const url = process.env.NEXT_PUBLIC_MQTT_URL;
 
     if (!url) {
@@ -357,7 +373,7 @@ export function SpeakerVisualizer({
     return () => {
       client.end(true);
     };
-  }, []);
+  }, [dummyMode]);
 
   const statusLabel = status === 'receiving' ? 'Streaming audio data' : status === 'connected' ? 'Connected' : status === 'disconnected' ? 'Disconnected' : status === 'error' ? 'Error' : 'Connecting';
 
