@@ -1,4 +1,8 @@
-export function DownChevron() {
+interface DownChevronProps {
+  color?: string;
+}
+
+export function DownChevron({ color = "#737373" }: DownChevronProps) {
   return (
     <svg
       width="12"
@@ -9,7 +13,8 @@ export function DownChevron() {
     >
       <path
         d="M9.48483 3.99996L6.24219 7.24261L2.99955 3.99996H9.48483Z"
-        className="fill-[#737373] group-hover:fill-neutral-800 transition-colors duration-150"
+        className="group-hover:fill-neutral-800 transition-colors duration-150"
+        style={{ fill: color }}
       />
     </svg>
   );

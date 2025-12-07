@@ -5,6 +5,11 @@ import { SpeakerPowerControls } from "@/components/speaker/base";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { AEALogo } from "./assets/AEALogo";
 import { DownChevron } from "./assets/DownChevron";
+import {
+  HEADER_THEME_TEXT_COLORS,
+  HEADER_THEME_SUBTEXT_COLORS,
+  CHEVRON_THEME_COLORS,
+} from "@/lib/themeConfig";
 
 interface SpeakerHeaderProps {
   health: any;
@@ -121,8 +126,13 @@ export function SpeakerHeader({
     <header className="flex w-full items-start justify-between gap-2 text-center pt-1 pr-1">
       {/* Logo */}
       <div className="flex flex-col items-center pt-1.5 pl-2">
-        <AEALogo />
-        <p className="text-[8px] text-[#898989]">(All Ears Audio)</p>
+        <AEALogo theme={selectedTheme} />
+        <p
+          className="text-[8px]"
+          style={{ color: HEADER_THEME_SUBTEXT_COLORS[selectedTheme] }}
+        >
+          (All Ears Audio)
+        </p>
       </div>
 
       {/* Mode */}
@@ -132,10 +142,19 @@ export function SpeakerHeader({
           type="button"
           onClick={() => setModeMenuOpen(!modeMenuOpen)}
           className={`group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] transition-all duration-150 hover:text-neutral-800 hover:bg-neutral-300 relative z-50 ${
-            modeMenuOpen ? "text-neutral-800 bg-neutral-300" : "text-[#737373]"
+            modeMenuOpen ? "text-neutral-800 bg-neutral-300" : ""
           }`}
+          style={{
+            color: modeMenuOpen
+              ? undefined
+              : HEADER_THEME_TEXT_COLORS[selectedTheme],
+          }}
         >
-          <DownChevron />
+          <DownChevron
+            color={
+              modeMenuOpen ? "#1f2937" : CHEVRON_THEME_COLORS[selectedTheme]
+            }
+          />
           Mode
           {source
             ? `: ${source
@@ -157,8 +176,11 @@ export function SpeakerHeader({
               style={{ top: `${modePanelTop}px` }}
             >
               <div className="mb-4">
-                <div className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] text-[#737373]">
-                  <DownChevron />
+                <div
+                  className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px]"
+                  style={{ color: HEADER_THEME_TEXT_COLORS[selectedTheme] }}
+                >
+                  <DownChevron color={CHEVRON_THEME_COLORS[selectedTheme]} />
                   Mode
                   {source
                     ? `: ${source
@@ -210,10 +232,19 @@ export function SpeakerHeader({
           type="button"
           onClick={() => setThemeMenuOpen(!themeMenuOpen)}
           className={`group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] transition-all duration-150 hover:text-neutral-800 hover:bg-neutral-300 relative z-50 ${
-            themeMenuOpen ? "text-neutral-800 bg-neutral-300" : "text-[#737373]"
+            themeMenuOpen ? "text-neutral-800 bg-neutral-300" : ""
           }`}
+          style={{
+            color: themeMenuOpen
+              ? undefined
+              : HEADER_THEME_TEXT_COLORS[selectedTheme],
+          }}
         >
-          <DownChevron />
+          <DownChevron
+            color={
+              themeMenuOpen ? "#1f2937" : CHEVRON_THEME_COLORS[selectedTheme]
+            }
+          />
           Theme
           {selectedTheme ? `: ${selectedTheme}` : ""}
         </button>
@@ -230,8 +261,11 @@ export function SpeakerHeader({
               style={{ top: `${themePanelTop}px` }}
             >
               <div className="mb-4">
-                <div className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] text-[#737373]">
-                  <DownChevron />
+                <div
+                  className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px]"
+                  style={{ color: HEADER_THEME_TEXT_COLORS[selectedTheme] }}
+                >
+                  <DownChevron color={CHEVRON_THEME_COLORS[selectedTheme]} />
                   Theme
                   {selectedTheme ? `: ${selectedTheme}` : ""}
                 </div>
@@ -272,12 +306,19 @@ export function SpeakerHeader({
           type="button"
           onClick={() => setSettingsMenuOpen(!settingsMenuOpen)}
           className={`group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] transition-all duration-150 hover:text-neutral-800 hover:bg-neutral-300 relative z-50 ${
-            settingsMenuOpen
-              ? "text-neutral-800 bg-neutral-300"
-              : "text-[#737373]"
+            settingsMenuOpen ? "text-neutral-800 bg-neutral-300" : ""
           }`}
+          style={{
+            color: settingsMenuOpen
+              ? undefined
+              : HEADER_THEME_TEXT_COLORS[selectedTheme],
+          }}
         >
-          <DownChevron />
+          <DownChevron
+            color={
+              settingsMenuOpen ? "#1f2937" : CHEVRON_THEME_COLORS[selectedTheme]
+            }
+          />
           Settings
         </button>
 
@@ -293,8 +334,11 @@ export function SpeakerHeader({
               style={{ top: `${settingsPanelTop}px` }}
             >
               <div className="mb-4">
-                <div className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px] text-[#737373]">
-                  <DownChevron />
+                <div
+                  className="group flex items-center py-1.5 pl-2 pr-3 rounded-lg text-[11px]"
+                  style={{ color: HEADER_THEME_TEXT_COLORS[selectedTheme] }}
+                >
+                  <DownChevron color={CHEVRON_THEME_COLORS[selectedTheme]} />
                   Settings
                 </div>
               </div>

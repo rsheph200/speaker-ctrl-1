@@ -1,21 +1,26 @@
 "use client";
 
 import { SpeakerIcon } from "./assets/SpeakerIcon";
+import type { Theme } from "@/context/AppSettingsContext";
+import { FOOTER_THEME_TEXT_COLORS } from "@/lib/themeConfig";
 
 interface SpeakerFooterProps {
   connected: boolean;
   status: string;
   health: any;
+  theme?: Theme;
 }
 
 function SpeakerInfoCard({
   connected,
   status,
   health,
+  theme = "Plain",
 }: {
   connected: boolean;
   status: string;
   health: any;
+  theme?: Theme;
 }) {
   const statusParts: string[] = [];
   const healthParts: string[] = [];
@@ -64,13 +69,21 @@ function SpeakerInfoCard({
   const statusText = statusParts.length > 0 ? statusParts.join(". ") + "." : "";
   const healthText = healthParts.length > 0 ? healthParts.join(", ") : "";
 
+  const textColor = FOOTER_THEME_TEXT_COLORS[theme];
+
   return (
-    <div className="flex justify-end items-end sm:gap-0.5 gap-1 text-[9px]  text-[#909090]">
+    <div
+      className="flex justify-end items-end sm:gap-0.5 gap-1 text-[9px]"
+      style={{ color: textColor }}
+    >
       <SpeakerIcon
         color={connected ? "#34AE5F" : "#f87171"}
         className="h-9 w-8 sm:h-6 sm:w-6 mt-[1.5px]"
       />
-      <div className="flex flex-col text-[9px]  text-[#909090] pb-0.25">
+      <div
+        className="flex flex-col text-[9px] pb-0.25"
+        style={{ color: textColor }}
+      >
         {statusText && <span className="leading-tight">{statusText}</span>}
         {healthText && <span className="leading-tight">{healthText}</span>}
       </div>
@@ -82,18 +95,28 @@ export function SpeakerFooter({
   connected,
   status,
   health,
+  theme = "Plain",
 }: SpeakerFooterProps) {
+  const textColor = FOOTER_THEME_TEXT_COLORS[theme];
+
   return (
-    <footer className="flex w-full justify-between p-2 text-[9px]  text-[#909090]">
+    <footer
+      className="flex w-full justify-between p-2 text-[9px]"
+      style={{ color: textColor }}
+    >
       <div className="max-w-[45%] sm:max-w-none">
         <SpeakerInfoCard
           connected={connected}
           status={status}
           health={health}
+          theme={theme}
         />
       </div>
 
-      <div className="flex flex-col justify-end items-end pr-0.25 text-right max-w-[40%] sm:max-w-none">
+      <div
+        className="flex flex-col justify-end items-end pr-0.25 text-right max-w-[40%] sm:max-w-none"
+        style={{ color: textColor }}
+      >
         <p className="leading-tight text-right">
           Custom audio experience services.{" "}
         </p>
