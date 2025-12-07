@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useMQTT } from "@/lib/useMQTT";
 import { useSpotify } from "@/lib/useSpotify";
 import { SpeakerHeader, SpeakerFooter } from "@/components/speaker/base";
-import { SpeakerBody } from "@/components/speaker/plain/plain-body";
+import { SpeakerBody as PlainSpeakerBody } from "@/components/speaker/plain/plain-body";
+import { SpeakerBody as TeenSpeakerBody } from "@/components/speaker/teen/teen-body";
+import { TeenBackground } from "@/components/speaker/teen/teen-background";
 import { PageBackground } from "@/components/page/PageBackground";
 import { useAppSettings } from "@/context/AppSettingsContext";
 
@@ -113,19 +115,19 @@ export default function SpeakerOnePage() {
     ? Math.round(spotifyControl.volume)
     : 0;
 
-  return (
-    <PageBackground theme={theme}>
-      <div className="flex flex-col mx-auto w-full h-full items-center justify-between">
-        <SpeakerHeader
-          health={health}
-          source={source}
-          availableSources={availableSources}
-          onSourceChange={setSource}
-          onRestart={restart}
-          onShutdown={shutdown}
-        />
+  const content = (
+    <div className="flex flex-col mx-auto w-full h-full items-center justify-between">
+      <SpeakerHeader
+        health={health}
+        source={source}
+        availableSources={availableSources}
+        onSourceChange={setSource}
+        onRestart={restart}
+        onShutdown={shutdown}
+      />
 
-        <SpeakerBody
+      {theme === "Teen" ? (
+        <TeenSpeakerBody
           mounted={mounted}
           showNowPlaying={showNowPlaying}
           artwork={spotify.artwork}
@@ -146,9 +148,42 @@ export default function SpeakerOnePage() {
           onVolumeChange={setVolume}
           onSpotifyVolumeChange={spotifyControl.setVolume}
         />
+      ) : (
+        <PlainSpeakerBody
+          mounted={mounted}
+          showNowPlaying={showNowPlaying}
+          artwork={spotify.artwork}
+          track={spotify.track}
+          artist={spotify.artist}
+          album={spotify.album}
+          duration={spotify.duration}
+          position={spotify.position}
+          resolvedState={resolvedState}
+          visualizerResetTrigger={visualizerResetTrigger}
+          authenticated={spotifyControl.authenticated}
+          volume={volume}
+          spotifyVolumeLevel={spotifyVolumeLevel}
+          onLogin={spotifyControl.login}
+          onPlayPause={spotifyActions.playPause}
+          onNext={spotifyActions.next}
+          onPrevious={spotifyActions.previous}
+          onVolumeChange={setVolume}
+          onSpotifyVolumeChange={spotifyControl.setVolume}
+        />
+      )}
 
-        <SpeakerFooter connected={connected} status={status} health={health} />
-      </div>
-    </PageBackground>
+      <SpeakerFooter
+        connected={connected}
+        status={status}
+        health={health}
+        theme={theme}
+      />
+    </div>
+  );
+
+  return theme === "Teen" ? (
+    <TeenBackground>{content}</TeenBackground>
+  ) : (
+    <PageBackground theme={theme}>{content}</PageBackground>
   );
 }

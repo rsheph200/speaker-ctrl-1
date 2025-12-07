@@ -5,8 +5,8 @@ import { Music } from "lucide-react";
 import { useArtworkColor } from "@/lib/useArtworkColor";
 import { SpeakerVisualizer } from "@/components/speaker/base";
 import { SpeakerNowPlayingArtwork } from "@/components/speaker/base/player-controls/SpeakerNowPlayingArtwork";
-import { PlainProgress } from "./plain-progress";
-import { PlainPlayerControls } from "./plain-player-controls";
+import { TeenProgress } from "./teen-progress";
+import { TeenPlayerControls } from "./teen-player-controls";
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -62,55 +62,62 @@ export function SpeakerBody({
   const artworkColor = useArtworkColor(artwork);
 
   return (
-    <div className="flex flex-col w-screen h-full md:h-auto items-center justify-between px-2 gap-2 my-12">
-      <div className="rounded-3xl w-full max-w-[660px] h-full md:h-[460px] bg-[#202020]">
-        <div className="flex flex-col items-center justify-between h-full">
-          <div className="flex w-full items-start justify-between pr-4 pt-4 h-20">
-            <div className="-mt-1">
+    <div
+      className="flex flex-col h-auto items-center justify-between p-2 gap-2 my-12 mx-2 bg-[#04090D] rounded-xl"
+      style={{ width: "calc(100% - 1rem)", maxWidth: "660px" }}
+    >
+      <div className="w-full">
+        <div className="flex flex-col items-center justify-between h-full gap-8">
+          <div className="flex w-full items-start justify-between pr-4 pt-4 gap-2">
+            <div className="-mt-1 flex-shrink-0">
               <SpeakerVisualizer
                 artwork={artwork ?? null}
                 height={100}
-                className="w-[80px]"
+                className="w-[70px] sm:w-[80px]"
                 resetTrigger={visualizerResetTrigger}
               />
             </div>
-            <div className="">
+
+            <div className="flex-1 min-w-0 flex items-center justify-center">
+              {mounted && showNowPlaying && (
+                <div className="w-full flex flex-col items-center justify-center pb-2 overflow-hidden">
+                  {track && (
+                    <p className="text-lg sm:text-2xl text-[#767885] text-center truncate w-full">
+                      {track}
+                    </p>
+                  )}
+                  {artist && (
+                    <p className="text-lg sm:text-2xl text-[#767885] opacity-60 text-center truncate w-full">
+                      {artist}
+                    </p>
+                  )}
+                  {album && (
+                    <p className="text-lg sm:text-2xl text-[#767885] opacity-40 text-center truncate w-full">
+                      {album}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-shrink-0">
               {mounted && showNowPlaying && (
                 <SpeakerNowPlayingArtwork
                   src={artwork ?? undefined}
-                  className="h-12 w-12 rounded-lg object-cover"
+                  className="sm:h-12 h-10 w-10 sm:w-12 rounded-lg object-cover"
                 />
               )}
             </div>
           </div>
-          <div>
-            {mounted && showNowPlaying && (
-              <div className="flex-1 items-center justify-center pb-2">
-                {track && (
-                  <p className="text-2xl text-[#919090] text-center">{track}</p>
-                )}
-                {artist && (
-                  <p className="text-2xl text-[#919090] opacity-60 text-center">
-                    {artist}
-                  </p>
-                )}
-                {album && (
-                  <p className="text-2xl text-[#919090] opacity-40 text-center">
-                    {album}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
 
-          <div className="flex w-full items-end h-20 justify-between px-5 pb-4">
+          <div className="flex w-full items-end justify-between px-4 pb-3">
             {mounted && showNowPlaying && (
-              <PlainProgress
+              <TeenProgress
                 durationMs={duration}
                 positionMs={position}
-                className="flex items-center gap-2 w-full"
-                currentTimeClassName="font-medium text-[#919090] text-md"
-                totalTimeClassName="font-medium text-[#919090] opacity-60 text-md"
+                className="flex items-center gap-4 w-full"
+                currentTimeClassName="font-medium text-[#767885] text-md"
+                totalTimeClassName="font-medium text-[#767885] opacity-60 text-md"
                 barContainerClassName="flex-1 h-1 relative rounded-full"
                 circleClassName="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all duration-100"
                 circleColor={artworkColor}
@@ -121,7 +128,7 @@ export function SpeakerBody({
       </div>
 
       {mounted && showNowPlaying && (
-        <PlainPlayerControls
+        <TeenPlayerControls
           resolvedState={resolvedState}
           authenticated={authenticated}
           volume={volume}
@@ -131,7 +138,7 @@ export function SpeakerBody({
           onNext={onNext}
           onVolumeChange={onVolumeChange}
           onSpotifyVolumeChange={onSpotifyVolumeChange}
-          className="flex gap-6 w-full max-w-[660px] justify-between px-7"
+          className="flex gap-6 w-full max-w-[660px] justify-between"
           previousButtonClassName="flex items-center justify-center transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           playPauseButtonClassName="flex items-center justify-center transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           nextButtonClassName="flex items-center justify-center transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
