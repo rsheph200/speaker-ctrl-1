@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   createContext,
@@ -8,9 +8,9 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 
-export type Theme = "Plain" | "Retro" | "Teen";
+export type Theme = "Plain" | "Retro" | "Mood" | "Circular";
 
 type AppSettingsContextValue = {
   dummyMode: boolean;
@@ -20,8 +20,10 @@ type AppSettingsContextValue = {
   setTheme: (theme: Theme) => void;
 };
 
-const AppSettingsContext = createContext<AppSettingsContextValue | undefined>(undefined);
-const STORAGE_KEY = 'aea-app-settings';
+const AppSettingsContext = createContext<AppSettingsContextValue | undefined>(
+  undefined
+);
+const STORAGE_KEY = "aea-app-settings";
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const [dummyMode, setDummyMode] = useState(false);
@@ -36,28 +38,36 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       }
 
       const parsed = JSON.parse(stored);
-      if (typeof parsed?.dummyMode === 'boolean') {
+      if (typeof parsed?.dummyMode === "boolean") {
         setDummyMode(parsed.dummyMode);
       }
-      if (parsed?.theme === "Plain" || parsed?.theme === "Retro" || parsed?.theme === "Teen") {
+      if (
+        parsed?.theme === "Plain" ||
+        parsed?.theme === "Retro" ||
+        parsed?.theme === "Mood" ||
+        parsed?.theme === "Circular"
+      ) {
         setTheme(parsed.theme);
       }
     } catch (error) {
-      console.warn('Failed to load stored settings', error);
+      console.warn("Failed to load stored settings", error);
     }
   }, []);
 
   // Persist whenever the settings change
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ dummyMode, theme }));
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ dummyMode, theme })
+      );
     } catch (error) {
-      console.warn('Failed to persist settings', error);
+      console.warn("Failed to persist settings", error);
     }
   }, [dummyMode, theme]);
 
   const toggleDummyMode = useCallback(() => {
-    setDummyMode(prev => !prev);
+    setDummyMode((prev) => !prev);
   }, []);
 
   const value = useMemo(
@@ -68,17 +78,21 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       theme,
       setTheme,
     }),
-    [dummyMode, toggleDummyMode, theme],
+    [dummyMode, toggleDummyMode, theme]
   );
 
-  return <AppSettingsContext.Provider value={value}>{children}</AppSettingsContext.Provider>;
+  return (
+    <AppSettingsContext.Provider value={value}>
+      {children}
+    </AppSettingsContext.Provider>
+  );
 }
 
 export function useAppSettings() {
   const context = useContext(AppSettingsContext);
 
   if (!context) {
-    throw new Error('useAppSettings must be used within AppSettingsProvider');
+    throw new Error("useAppSettings must be used within AppSettingsProvider");
   }
 
   return context;

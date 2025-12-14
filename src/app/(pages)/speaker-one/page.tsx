@@ -7,6 +7,7 @@ import { useSpotify } from "@/lib/useSpotify";
 import { SpeakerHeader, SpeakerFooter } from "@/components/speaker/base";
 import { SpeakerBody as PlainSpeakerBody } from "@/components/speaker/plain/plain-body";
 import { SpeakerBody as TeenSpeakerBody } from "@/components/speaker/teen/teen-body";
+import { SpeakerBody as CircularSpeakerBody } from "@/components/speaker/circular/circular-body";
 import { TeenBackground } from "@/components/speaker/teen/teen-background";
 import { PageBackground } from "@/components/page/PageBackground";
 import { useAppSettings } from "@/context/AppSettingsContext";
@@ -126,8 +127,30 @@ export default function SpeakerOnePage() {
         onShutdown={shutdown}
       />
 
-      {theme === "Teen" ? (
+      {theme === "Mood" ? (
         <TeenSpeakerBody
+          mounted={mounted}
+          showNowPlaying={showNowPlaying}
+          artwork={spotify.artwork}
+          track={spotify.track}
+          artist={spotify.artist}
+          album={spotify.album}
+          duration={spotify.duration}
+          position={spotify.position}
+          resolvedState={resolvedState}
+          visualizerResetTrigger={visualizerResetTrigger}
+          authenticated={spotifyControl.authenticated}
+          volume={volume}
+          spotifyVolumeLevel={spotifyVolumeLevel}
+          onLogin={spotifyControl.login}
+          onPlayPause={spotifyActions.playPause}
+          onNext={spotifyActions.next}
+          onPrevious={spotifyActions.previous}
+          onVolumeChange={setVolume}
+          onSpotifyVolumeChange={spotifyControl.setVolume}
+        />
+      ) : theme === "Circular" ? (
+        <CircularSpeakerBody
           mounted={mounted}
           showNowPlaying={showNowPlaying}
           artwork={spotify.artwork}
@@ -181,7 +204,7 @@ export default function SpeakerOnePage() {
     </div>
   );
 
-  return theme === "Teen" ? (
+  return theme === "Mood" ? (
     <TeenBackground>{content}</TeenBackground>
   ) : (
     <PageBackground theme={theme}>{content}</PageBackground>

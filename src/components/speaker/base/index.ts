@@ -12,6 +12,7 @@ export * from "./power-controls";
 export * from "./spotify-volume-control";
 export * from "./visualizer";
 export * from "./circle-visualizer";
+export * from "../circular/circle-speaker-visualizer";
 export * from "./types";
 export * from "../../page-controls/SpeakerHeader";
 export * from "../../page-controls/SpeakerFooter";
