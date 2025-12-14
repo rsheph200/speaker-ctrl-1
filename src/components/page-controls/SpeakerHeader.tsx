@@ -271,7 +271,7 @@ export function SpeakerHeader({
                 </div>
               </div>
               <ul className="space-y-2">
-                {["Plain", "Retro", "Teen"].map((themeOption) => {
+                {["Plain", "Retro", "Mood", "Circular"].map((themeOption) => {
                   const isSelected = selectedTheme === themeOption;
 
                   return (
@@ -279,7 +279,13 @@ export function SpeakerHeader({
                       <button
                         type="button"
                         onClick={() => {
-                          setTheme(themeOption as "Plain" | "Retro" | "Teen");
+                          setTheme(
+                            themeOption as
+                              | "Plain"
+                              | "Retro"
+                              | "Mood"
+                              | "Circular"
+                          );
                           setThemeMenuOpen(false);
                         }}
                         className={`w-full rounded-xl p-3 text-left text-sm font-medium transition-all ${

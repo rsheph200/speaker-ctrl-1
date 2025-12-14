@@ -25,6 +25,51 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.track-enter {
+  animation: track-enter 500ms ease forwards;
+}
+
+.track-exit-to-list {
+  animation: track-exit-to-list 500ms ease forwards;
+}
+
+.track-fade-to-40 {
+  animation: track-fade-to-40 500ms ease forwards;
+}
+
+@keyframes track-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes track-fade-to-40 {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.4;
+  }
+}
+
+@keyframes track-exit-to-list {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0.4;
+    transform: translateY(-8px);
+  }
+}
 /* iOS Safari fix for full-height backgrounds */
 .page-background-full-height {
   min-height: 100vh;
