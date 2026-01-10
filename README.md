@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ru's speaker control app
+First version of the web app to control 2 speakers. 
+It gives general control. This will be expanded on further as the project develops. 
 
-## Getting Started
+# 🎛️ Speaker Controller Web App
 
-First, run the development server:
+A Next.js web application that functions as the **control interface** for a modular, multi-room audio system powered by Snapcast, PulseAudio, and MQTT.
+
+This app allows users to:
+
+- ✅ Select active input sources (Bluetooth, Spotify, etc.)
+- 🔈 Control volume per speaker zone
+- 🔀 Route audio to one or more Snapclients
+- 🧠 View real-time system status
+- 🟣 Interact with the backend via MQTT or HTTP API
+
+---
+
+## 🧠 Project Context
+
+This UI is part of a larger speaker system running on Raspberry Pi and/or similar devices. The system architecture includes:
+
+- `snapserver` + `snapclient` for synchronized audio streaming
+- `pulseaudio` for source routing and audio mixing
+- `librespot` and Bluetooth for input sources
+- MQTT broker (Mosquitto) for control/state messaging
+- Web-based controller served to a dedicated kiosk device (CMF phone)
+
+---
+
+## 📁 Project Structure
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+.
+├── components/         # UI components (volume sliders, toggles, etc.)
+├── pages/              # Next.js route handlers
+├── lib/                # MQTT client, state hooks
+├── styles/             # Tailwind / CSS modules
+├── public/             # Static assets
+└── README.md
