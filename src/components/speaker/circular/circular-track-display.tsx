@@ -125,7 +125,7 @@ export function CircularTrackDisplay({
         ]);
         lastTrackRef.current = track;
       } else if (track === lastTrackRef.current) {
-        // Update artwork for the current track when it changes
+        // Update artwork, album, and artist for the current track when they change
         setTrackList((prev) => {
           if (prev.length === 0) return prev;
           const updated = [...prev];
@@ -133,6 +133,8 @@ export function CircularTrackDisplay({
           if (updated[lastIndex].track === track) {
             updated[lastIndex] = {
               ...updated[lastIndex],
+              album: album,
+              artist: artist,
               artwork: artwork,
             };
           }
