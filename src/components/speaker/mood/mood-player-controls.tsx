@@ -9,7 +9,7 @@ import { PauseIcon } from "@/components/page-controls/assets/PauseIcon";
 import { NextIcon } from "@/components/page-controls/assets/NextIcon";
 import { PreviousIcon } from "@/components/page-controls/assets/PreviousIcon";
 
-interface TeenPlayerControlsProps {
+interface MoodPlayerControlsProps {
   resolvedState: string;
   authenticated: boolean;
   volume: number;
@@ -28,7 +28,7 @@ interface TeenPlayerControlsProps {
   volumeMenuContainerClassName?: string;
 }
 
-export function TeenPlayerControls({
+export function MoodPlayerControls({
   resolvedState,
   authenticated,
   volume,
@@ -45,7 +45,7 @@ export function TeenPlayerControls({
   volumeButtonClassName,
   volumeMenuClassName,
   volumeMenuContainerClassName,
-}: TeenPlayerControlsProps) {
+}: MoodPlayerControlsProps) {
   const [volumeMenuOpen, setVolumeMenuOpen] = useState(false);
   const [popoverBottom, setPopoverBottom] = useState<number | null>(null);
   const volumeMenuRef = useRef<HTMLDivElement>(null);

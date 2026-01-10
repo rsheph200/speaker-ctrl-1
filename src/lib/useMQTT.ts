@@ -26,15 +26,32 @@ export interface MQTTState {
     artist: string;
     album: string;
     trackId: string;
-    duration: number; // in milliseconds
-    position: number; // in milliseconds
-    rawPosition: number; // latest raw position from MQTT
+    duration: number;
+    position: number;
+    rawPosition: number;
     state: 'playing' | 'paused' | 'stopped' | 'idle';
     volume: number;
     artwork: string;
     timestamp: number;
     serverTimestamp: number | null;
     progressFrozen: boolean;
+  };
+  bluetooth: {
+    track: string;
+    artist: string;
+    album: string;
+    duration: number;
+    position: number;
+    state: 'playing' | 'paused' | 'stopped' | 'idle';
+    artwork: string;
+    active: boolean;
+    devices: Array<{
+      source: string;
+      mac: string;
+      name: string;
+      connected: boolean;
+      metadata?: any;
+    }>;
   };
 }
 
@@ -61,6 +78,17 @@ export function useMQTT() {
       timestamp: 0,
       serverTimestamp: null,
       progressFrozen: false,
+    },
+    bluetooth: {
+      track: '',
+      artist: '',
+      album: '',
+      duration: 0,
+      position: 0,
+      state: 'idle',
+      artwork: '',
+      active: false,
+      devices: [],
     },
   });
 
@@ -115,7 +143,6 @@ export function useMQTT() {
       return null;
     }
 
-    // Values larger than 1e11 are already in milliseconds. Otherwise assume seconds.
     return value > 1e11 ? value : value * 1000;
   };
 
@@ -223,7 +250,7 @@ export function useMQTT() {
         console.debug('[MQTT] Message', topic, message);
       }
 
-      // Non-Spotify topics
+      // System topics
       if (topic === 'ruspeaker/status') {
         setState(prev => ({ ...prev, status: message }));
       } else if (topic === 'ruspeaker/volume') {
@@ -239,7 +266,7 @@ export function useMQTT() {
           console.error('Failed to parse health JSON:', message, error);
         }
       }
-      // ADD THIS - Spotify topic handlers
+      // Spotify topics
       else if (topic === 'ruspeaker/spotify/track') {
         setState(prev => ({ 
           ...prev, 
@@ -358,6 +385,62 @@ export function useMQTT() {
         });
         clearFreezeTimeout();
       }
+      // Bluetooth topics
+      else if (topic === 'ruspeaker/bluetooth/track') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, track: message }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/artist') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, artist: message }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/album') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, album: message }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/duration') {
+        const parsed = parseInt(message, 10) || 0;
+        const duration = toMilliseconds(parsed);
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, duration }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/position') {
+        const parsed = parseInt(message, 10) || 0;
+        const position = toMilliseconds(parsed);
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, position }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/state') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, state: message as any }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/artwork') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, artwork: message }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/active') {
+        setState(prev => ({ 
+          ...prev, 
+          bluetooth: { ...prev.bluetooth, active: message === 'true' }
+        }));
+      } else if (topic === 'ruspeaker/bluetooth/devices') {
+        try {
+          const devices = JSON.parse(message);
+          setState(prev => ({ 
+            ...prev, 
+            bluetooth: { ...prev.bluetooth, devices }
+          }));
+        } catch (error) {
+          console.error('Failed to parse Bluetooth devices JSON:', message, error);
+        }
+      }
     });
 
     mqttClient.on('error', (error) => {
@@ -375,7 +458,7 @@ export function useMQTT() {
       mqttClient.end();
       setClient(null);
     };
-  }, [dummyMode]);
+  }, [dummyMode, mqttDebug, clearFreezeTimeout, toMilliseconds, normalizeTimestamp, adjustPositionWithTimestamp]);
 
   const setVolume = useCallback((volume: number) => {
     if (dummyMode) {
@@ -442,7 +525,7 @@ export function useMQTT() {
     }));
   }, [dummyMode, scheduleFreezeFallback]);
 
-  // Client-side progress tracking for smooth progress bar
+  // Client-side progress tracking for smooth progress bar (Spotify only)
   useEffect(() => {
     if (dummyMode) {
       return;
@@ -488,7 +571,7 @@ export function useMQTT() {
           spotify: { ...prev.spotify, position: clampedPosition, timestamp: now }
         };
       });
-    }, 100); // Update every 100ms for smooth progress
+    }, 100);
 
     return () => clearInterval(interval);
   }, [

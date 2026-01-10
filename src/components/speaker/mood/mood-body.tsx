@@ -5,8 +5,8 @@ import { Music } from "lucide-react";
 import { useArtworkColor } from "@/lib/useArtworkColor";
 import { SpeakerVisualizer } from "@/components/speaker/base";
 import { SpeakerNowPlayingArtwork } from "@/components/speaker/base/player-controls/SpeakerNowPlayingArtwork";
-import { TeenProgress } from "./teen-progress";
-import { TeenPlayerControls } from "./teen-player-controls";
+import { MoodProgress } from "./mood-progress";
+import { MoodPlayerControls } from "./mood-player-controls";
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -112,7 +112,7 @@ export function SpeakerBody({
 
           <div className="flex w-full items-end justify-between px-4 pb-3">
             {mounted && showNowPlaying && (
-              <TeenProgress
+              <MoodProgress
                 durationMs={duration}
                 positionMs={position}
                 className="flex items-center gap-4 w-full"
@@ -128,7 +128,7 @@ export function SpeakerBody({
       </div>
 
       {mounted && showNowPlaying && (
-        <TeenPlayerControls
+        <MoodPlayerControls
           resolvedState={resolvedState}
           authenticated={authenticated}
           volume={volume}

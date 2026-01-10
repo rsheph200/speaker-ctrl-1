@@ -49,8 +49,8 @@ export const PAGE_BACKGROUND_COLORS: Record<Theme, string> = {
 };
 
 // Mood theme gradient background
-export const TEEN_GRADIENT_BACKGROUND =
+export const MOOD_GRADIENT_BACKGROUND =
   "linear-gradient(180deg, #000 0%, #0A161F 36.06%, #374749 50.48%, #849697 63.94%, #DCEEE9 100%)";
 
 // Mood theme blur filter (currently commented out, but available)
-export const TEEN_BLUR_FILTER = "blur(87px)";
+export const MOOD_BLUR_FILTER = "blur(87px)";

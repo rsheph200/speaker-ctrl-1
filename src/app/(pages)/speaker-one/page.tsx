@@ -6,9 +6,9 @@ import { useMQTT } from "@/lib/useMQTT";
 import { useSpotify } from "@/lib/useSpotify";
 import { SpeakerHeader, SpeakerFooter } from "@/components/speaker/base";
 import { SpeakerBody as PlainSpeakerBody } from "@/components/speaker/plain/plain-body";
-import { SpeakerBody as TeenSpeakerBody } from "@/components/speaker/teen/teen-body";
+import { SpeakerBody as MoodSpeakerBody } from "@/components/speaker/mood/mood-body";
 import { SpeakerBody as CircularSpeakerBody } from "@/components/speaker/circular/circular-body";
-import { TeenBackground } from "@/components/speaker/teen/teen-background";
+import { MoodBackground } from "@/components/speaker/mood/mood-background";
 import { PageBackground } from "@/components/page/PageBackground";
 import { useAppSettings } from "@/context/AppSettingsContext";
 
@@ -128,7 +128,7 @@ export default function SpeakerOnePage() {
       />
 
       {theme === "Mood" ? (
-        <TeenSpeakerBody
+        <MoodSpeakerBody
           mounted={mounted}
           showNowPlaying={showNowPlaying}
           artwork={spotify.artwork}
@@ -205,7 +205,7 @@ export default function SpeakerOnePage() {
   );
 
   return theme === "Mood" ? (
-    <TeenBackground>{content}</TeenBackground>
+    <MoodBackground>{content}</MoodBackground>
   ) : (
     <PageBackground theme={theme}>{content}</PageBackground>
   );

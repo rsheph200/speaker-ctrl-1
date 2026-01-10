@@ -14,7 +14,7 @@ const defaultFormatTime: TimeFormatter = (value: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
-interface TeenProgressProps {
+interface MoodProgressProps {
   durationMs?: number | null;
   positionMs?: number | null;
   formatTime?: TimeFormatter;
@@ -27,7 +27,7 @@ interface TeenProgressProps {
   ariaLabel?: string;
 }
 
-export function TeenProgress({
+export function MoodProgress({
   durationMs,
   positionMs,
   formatTime = defaultFormatTime,
@@ -38,7 +38,7 @@ export function TeenProgress({
   circleClassName,
   circleColor,
   ariaLabel = "Track progress",
-}: TeenProgressProps) {
+}: MoodProgressProps) {
   const duration = typeof durationMs === "number" ? Math.max(durationMs, 0) : 0;
 
   if (duration === 0) {
