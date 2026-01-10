@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import mqtt, { MqttClient } from 'mqtt';
-import { useAppSettings } from '@/context/AppSettingsContext';
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import mqtt, { MqttClient } from "mqtt";
+import { useAppSettings } from "@/context/AppSettingsContext";
 import {
   activateDummySpeaker,
   deactivateDummySpeaker,
@@ -12,7 +12,7 @@ import {
   dummyShutdown,
   dummyRestart,
   dummyFreezeSpotifyProgress,
-} from './dummy/speakerService';
+} from "./dummy/speakerService";
 
 export interface MQTTState {
   connected: boolean;
@@ -29,7 +29,7 @@ export interface MQTTState {
     duration: number;
     position: number;
     rawPosition: number;
-    state: 'playing' | 'paused' | 'stopped' | 'idle';
+    state: "playing" | "paused" | "stopped" | "idle";
     volume: number;
     artwork: string;
     timestamp: number;
@@ -42,7 +42,7 @@ export interface MQTTState {
     album: string;
     duration: number;
     position: number;
-    state: 'playing' | 'paused' | 'stopped' | 'idle';
+    state: "playing" | "paused" | "stopped" | "idle";
     artwork: string;
     active: boolean;
     devices: Array<{
@@ -59,34 +59,34 @@ export function useMQTT() {
   const [client, setClient] = useState<MqttClient | null>(null);
   const [state, setState] = useState<MQTTState>({
     connected: false,
-    status: 'offline',
+    status: "offline",
     volume: 50,
-    source: 'spotify',
-    availableSources: ['spotify', 'line-in', 'aux', 'bluetooth'],
+    source: "spotify",
+    availableSources: ["spotify", "line-in", "aux", "bluetooth"],
     health: null,
     spotify: {
-      track: '',
-      artist: '',
-      album: '',
-      trackId: '',
+      track: "",
+      artist: "",
+      album: "",
+      trackId: "",
       duration: 0,
       position: 0,
       rawPosition: 0,
-      state: 'idle',
+      state: "idle",
       volume: 50,
-      artwork: '',
+      artwork: "",
       timestamp: 0,
       serverTimestamp: null,
       progressFrozen: false,
     },
     bluetooth: {
-      track: '',
-      artist: '',
-      album: '',
+      track: "",
+      artist: "",
+      album: "",
       duration: 0,
       position: 0,
-      state: 'idle',
-      artwork: '',
+      state: "idle",
+      artwork: "",
       active: false,
       devices: [],
     },
@@ -95,6 +95,7 @@ export function useMQTT() {
   const { dummyMode } = useAppSettings();
   const dummyUnsubscribeRef = useRef<(() => void) | null>(null);
   const freezeTimeoutRef = useRef<number | null>(null);
+  const lastManualSourceChangeRef = useRef<number | null>(null);
 
   const clearFreezeTimeout = useCallback(() => {
     if (freezeTimeoutRef.current !== null) {
@@ -104,14 +105,14 @@ export function useMQTT() {
   }, []);
 
   const scheduleFreezeFallback = useCallback(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
     clearFreezeTimeout();
     freezeTimeoutRef.current = window.setTimeout(() => {
       freezeTimeoutRef.current = null;
-      setState(prev => {
+      setState((prev) => {
         if (!prev.spotify.progressFrozen) {
           return prev;
         }
@@ -128,49 +129,56 @@ export function useMQTT() {
     }, 2500);
   }, [clearFreezeTimeout]);
 
-  const mqttDebug = process.env.NEXT_PUBLIC_MQTT_DEBUG === 'true';
+  const mqttDebug = useMemo(
+    () => process.env.NEXT_PUBLIC_MQTT_DEBUG === "true",
+    []
+  );
 
-  const toMilliseconds = (value: number) => {
+  // Memoize these functions to prevent useEffect from running on every render
+  const toMilliseconds = useCallback((value: number) => {
     if (!Number.isFinite(value) || value <= 0) {
       return 0;
     }
 
     return value > 1000 ? value : value * 1000;
-  };
+  }, []);
 
-  const normalizeTimestamp = (value: number) => {
+  const normalizeTimestamp = useCallback((value: number) => {
     if (!Number.isFinite(value) || value <= 0) {
       return null;
     }
 
     return value > 1e11 ? value : value * 1000;
-  };
+  }, []);
 
-  const adjustPositionWithTimestamp = (
-    rawPosition: number,
-    duration: number,
-    serverTimestamp: number | null,
-    now: number,
-  ) => {
-    if (!Number.isFinite(rawPosition) || rawPosition < 0) {
-      return 0;
-    }
-
-    let adjustedPosition = rawPosition;
-
-    if (serverTimestamp && serverTimestamp <= now) {
-      const delta = now - serverTimestamp;
-      if (delta > 0) {
-        adjustedPosition += delta;
+  const adjustPositionWithTimestamp = useCallback(
+    (
+      rawPosition: number,
+      duration: number,
+      serverTimestamp: number | null,
+      now: number
+    ) => {
+      if (!Number.isFinite(rawPosition) || rawPosition < 0) {
+        return 0;
       }
-    }
 
-    if (duration > 0) {
-      adjustedPosition = Math.min(adjustedPosition, duration);
-    }
+      let adjustedPosition = rawPosition;
 
-    return adjustedPosition;
-  };
+      if (serverTimestamp && serverTimestamp <= now) {
+        const delta = now - serverTimestamp;
+        if (delta > 0) {
+          adjustedPosition += delta;
+        }
+      }
+
+      if (duration > 0) {
+        adjustedPosition = Math.min(adjustedPosition, duration);
+      }
+
+      return adjustedPosition;
+    },
+    []
+  );
 
   useEffect(() => {
     if (!dummyMode) {
@@ -183,7 +191,7 @@ export function useMQTT() {
     }
 
     activateDummySpeaker();
-    const unsubscribe = subscribeToDummySpeaker(next => {
+    const unsubscribe = subscribeToDummySpeaker((next) => {
       setState(next.mqtt);
     });
     dummyUnsubscribeRef.current = unsubscribe;
@@ -203,128 +211,167 @@ export function useMQTT() {
     const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL;
 
     if (!brokerUrl) {
-      console.error('NEXT_PUBLIC_MQTT_URL is not defined');
+      console.error("NEXT_PUBLIC_MQTT_URL is not defined");
       return;
     }
 
     if (mqttDebug) {
-      console.debug('[MQTT] Connecting to broker', brokerUrl);
+      console.debug("[MQTT] Connecting to broker", brokerUrl);
     }
 
     const mqttClient = mqtt.connect(brokerUrl, {
       reconnectPeriod: 1000,
       connectTimeout: 30000,
+      clean: true,
+      keepalive: 20,
+      protocolVersion: 4,
     });
 
-    mqttClient.on('connect', () => {
+    mqttClient.on("connect", () => {
       if (mqttDebug) {
-        console.debug('[MQTT] Connected');
+        console.debug("[MQTT] Connected");
       }
-      setState(prev => ({ ...prev, connected: true }));
-      mqttClient.subscribe('ruspeaker/#');
+      setState((prev) => ({ ...prev, connected: true }));
+      mqttClient.subscribe("ruspeaker/#", (error) => {
+        if (error) {
+          console.error("[MQTT] Failed to subscribe", error);
+          setState((prev) => ({ ...prev, connected: false }));
+        } else if (mqttDebug) {
+          console.debug("[MQTT] Subscribed to ruspeaker/#");
+        }
+      });
+      // Also subscribe to multi-speaker topics
+      mqttClient.subscribe("audio/speakers/#", (error) => {
+        if (error) {
+          console.error(
+            "[MQTT] Failed to subscribe to audio/speakers/#",
+            error
+          );
+        } else if (mqttDebug) {
+          console.debug("[MQTT] Subscribed to audio/speakers/#");
+        }
+      });
     });
 
-    mqttClient.on('reconnect', () => {
+    mqttClient.on("reconnect", () => {
       if (mqttDebug) {
-        console.debug('[MQTT] Reconnecting…');
+        console.debug("[MQTT] Reconnecting…");
       }
     });
 
-    mqttClient.on('close', () => {
+    mqttClient.on("close", () => {
       if (mqttDebug) {
-        console.debug('[MQTT] Connection closed');
+        console.debug("[MQTT] Connection closed");
       }
-      setState(prev => ({ ...prev, connected: false }));
+      setState((prev) => ({ ...prev, connected: false }));
     });
 
-    mqttClient.on('offline', () => {
+    mqttClient.on("offline", () => {
       if (mqttDebug) {
-        console.debug('[MQTT] Broker offline');
+        console.debug("[MQTT] Broker offline");
       }
-      setState(prev => ({ ...prev, connected: false }));
+      setState((prev) => ({ ...prev, connected: false }));
     });
 
-    mqttClient.on('message', (topic: string, payload: Buffer) => {
+    mqttClient.on("message", (topic: string, payload: Buffer) => {
       const message = payload.toString();
       if (mqttDebug) {
-        console.debug('[MQTT] Message', topic, message);
+        console.debug("[MQTT] Message", topic, message);
+      }
+
+      // Log Spotify topics specifically for debugging
+      if (topic.startsWith("ruspeaker/spotify/")) {
+        console.log(`[MQTT Spotify] ${topic}:`, message);
       }
 
       // System topics
-      if (topic === 'ruspeaker/status') {
-        setState(prev => ({ ...prev, status: message }));
-      } else if (topic === 'ruspeaker/volume') {
-        setState(prev => ({ ...prev, volume: parseInt(message) }));
-      } else if (topic === 'ruspeaker/source/current') {
-        setState(prev => ({ ...prev, source: message }));
-      } else if (topic === 'ruspeaker/source/available') {
-        setState(prev => ({ ...prev, availableSources: JSON.parse(message) }));
-      } else if (topic === 'ruspeaker/health') {
+      if (topic === "ruspeaker/status") {
+        setState((prev) => ({ ...prev, status: message }));
+      } else if (topic === "ruspeaker/volume") {
+        setState((prev) => ({ ...prev, volume: parseInt(message) }));
+      } else if (topic === "ruspeaker/source/current") {
+        setState((prev) => ({ ...prev, source: message }));
+      } else if (topic === "ruspeaker/source/available") {
         try {
-          setState(prev => ({ ...prev, health: JSON.parse(message) }));
+          setState((prev) => ({
+            ...prev,
+            availableSources: JSON.parse(message),
+          }));
         } catch (error) {
-          console.error('Failed to parse health JSON:', message, error);
+          console.error(
+            "Failed to parse available sources JSON:",
+            message,
+            error
+          );
+        }
+      } else if (topic === "ruspeaker/health") {
+        try {
+          setState((prev) => ({ ...prev, health: JSON.parse(message) }));
+        } catch (error) {
+          console.error("Failed to parse health JSON:", message, error);
         }
       }
       // Spotify topics
-      else if (topic === 'ruspeaker/spotify/track') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, track: message }
+      else if (topic === "ruspeaker/spotify/track") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, track: message },
         }));
-      } else if (topic === 'ruspeaker/spotify/artist') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, artist: message }
+      } else if (topic === "ruspeaker/spotify/artist") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, artist: message },
         }));
-      } else if (topic === 'ruspeaker/spotify/album') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, album: message }
+      } else if (topic === "ruspeaker/spotify/album") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, album: message },
         }));
-      } else if (topic === 'ruspeaker/spotify/track_id') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: prev.spotify.trackId === message
-            ? prev.spotify
-            : {
-                ...prev.spotify,
-                trackId: message,
-                position: 0,
-                rawPosition: 0,
-                progressFrozen: true,
-                timestamp: 0,
-                serverTimestamp: null,
-              }
+      } else if (topic === "ruspeaker/spotify/track_id") {
+        setState((prev) => ({
+          ...prev,
+          spotify:
+            prev.spotify.trackId === message
+              ? prev.spotify
+              : {
+                  ...prev.spotify,
+                  trackId: message,
+                  position: 0,
+                  rawPosition: 0,
+                  progressFrozen: true,
+                  timestamp: 0,
+                  serverTimestamp: null,
+                },
         }));
-      } else if (topic === 'ruspeaker/spotify/duration') {
+      } else if (topic === "ruspeaker/spotify/duration") {
         const parsed = parseInt(message, 10) || 0;
         const duration = toMilliseconds(parsed);
 
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, duration }
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, duration },
         }));
-      } else if (topic === 'ruspeaker/spotify/position') {
+      } else if (topic === "ruspeaker/spotify/position") {
         const parsed = parseInt(message, 10) || 0;
         const position = toMilliseconds(parsed);
 
-        setState(prev => {
+        setState((prev) => {
           const now = Date.now();
           const adjustedPosition = adjustPositionWithTimestamp(
             position,
             prev.spotify.duration,
             prev.spotify.serverTimestamp,
-            now,
+            now
           );
           const resetAllowed =
-            prev.spotify.progressFrozen || (position === 0 && prev.spotify.position <= 250);
+            prev.spotify.progressFrozen ||
+            (position === 0 && prev.spotify.position <= 250);
           const safePosition = resetAllowed
             ? adjustedPosition
             : Math.max(adjustedPosition, prev.spotify.position);
 
-          return { 
-            ...prev, 
+          return {
+            ...prev,
             spotify: {
               ...prev.spotify,
               position: safePosition,
@@ -336,26 +383,26 @@ export function useMQTT() {
           };
         });
         clearFreezeTimeout();
-      } else if (topic === 'ruspeaker/spotify/state') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, state: message as any }
+      } else if (topic === "ruspeaker/spotify/state") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, state: message as any },
         }));
-      } else if (topic === 'ruspeaker/spotify/volume') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, volume: parseInt(message) || 0 }
+      } else if (topic === "ruspeaker/spotify/volume") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, volume: parseInt(message) || 0 },
         }));
-      } else if (topic === 'ruspeaker/spotify/artwork') {
-        setState(prev => ({ 
-          ...prev, 
-          spotify: { ...prev.spotify, artwork: message }
+      } else if (topic === "ruspeaker/spotify/artwork") {
+        setState((prev) => ({
+          ...prev,
+          spotify: { ...prev.spotify, artwork: message },
         }));
-      } else if (topic === 'ruspeaker/spotify/timestamp') {
+      } else if (topic === "ruspeaker/spotify/timestamp") {
         const parsed = parseInt(message, 10);
         const serverTimestamp = normalizeTimestamp(parsed) ?? Date.now();
 
-        setState(prev => {
+        setState((prev) => {
           const now = Date.now();
           const basePosition = Number.isFinite(prev.spotify.rawPosition)
             ? prev.spotify.rawPosition
@@ -364,16 +411,17 @@ export function useMQTT() {
             basePosition,
             prev.spotify.duration,
             serverTimestamp,
-            now,
+            now
           );
           const resetAllowed =
-            prev.spotify.progressFrozen || (basePosition === 0 && prev.spotify.position <= 250);
+            prev.spotify.progressFrozen ||
+            (basePosition === 0 && prev.spotify.position <= 250);
           const safePosition = resetAllowed
             ? adjustedPosition
             : Math.max(adjustedPosition, prev.spotify.position);
 
-          return { 
-            ...prev, 
+          return {
+            ...prev,
             spotify: {
               ...prev.spotify,
               serverTimestamp,
@@ -386,70 +434,74 @@ export function useMQTT() {
         clearFreezeTimeout();
       }
       // Bluetooth topics
-      else if (topic === 'ruspeaker/bluetooth/track') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, track: message }
+      else if (topic === "ruspeaker/bluetooth/track") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, track: message },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/artist') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, artist: message }
+      } else if (topic === "ruspeaker/bluetooth/artist") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, artist: message },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/album') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, album: message }
+      } else if (topic === "ruspeaker/bluetooth/album") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, album: message },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/duration') {
+      } else if (topic === "ruspeaker/bluetooth/duration") {
         const parsed = parseInt(message, 10) || 0;
         const duration = toMilliseconds(parsed);
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, duration }
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, duration },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/position') {
+      } else if (topic === "ruspeaker/bluetooth/position") {
         const parsed = parseInt(message, 10) || 0;
         const position = toMilliseconds(parsed);
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, position }
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, position },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/state') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, state: message as any }
+      } else if (topic === "ruspeaker/bluetooth/state") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, state: message as any },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/artwork') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, artwork: message }
+      } else if (topic === "ruspeaker/bluetooth/artwork") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, artwork: message },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/active') {
-        setState(prev => ({ 
-          ...prev, 
-          bluetooth: { ...prev.bluetooth, active: message === 'true' }
+      } else if (topic === "ruspeaker/bluetooth/active") {
+        setState((prev) => ({
+          ...prev,
+          bluetooth: { ...prev.bluetooth, active: message === "true" },
         }));
-      } else if (topic === 'ruspeaker/bluetooth/devices') {
+      } else if (topic === "ruspeaker/bluetooth/devices") {
         try {
           const devices = JSON.parse(message);
-          setState(prev => ({ 
-            ...prev, 
-            bluetooth: { ...prev.bluetooth, devices }
+          setState((prev) => ({
+            ...prev,
+            bluetooth: { ...prev.bluetooth, devices },
           }));
         } catch (error) {
-          console.error('Failed to parse Bluetooth devices JSON:', message, error);
+          console.error(
+            "Failed to parse Bluetooth devices JSON:",
+            message,
+            error
+          );
         }
       }
     });
 
-    mqttClient.on('error', (error) => {
+    mqttClient.on("error", (error) => {
       if (mqttDebug) {
-        console.error('[MQTT] Error', error);
+        console.error("[MQTT] Error", error);
       } else {
-        console.error('MQTT Error:', error);
+        console.error("MQTT Error:", error);
       }
-      setState(prev => ({ ...prev, connected: false }));
+      setState((prev) => ({ ...prev, connected: false }));
     });
 
     setClient(mqttClient);
@@ -458,29 +510,45 @@ export function useMQTT() {
       mqttClient.end();
       setClient(null);
     };
-  }, [dummyMode, mqttDebug, clearFreezeTimeout, toMilliseconds, normalizeTimestamp, adjustPositionWithTimestamp]);
+  }, [
+    dummyMode,
+    mqttDebug,
+    clearFreezeTimeout,
+    toMilliseconds,
+    normalizeTimestamp,
+    adjustPositionWithTimestamp,
+  ]);
 
-  const setVolume = useCallback((volume: number) => {
-    if (dummyMode) {
-      updateDummySpeakerVolume(volume);
-      return;
-    }
+  const setVolume = useCallback(
+    (volume: number) => {
+      if (dummyMode) {
+        updateDummySpeakerVolume(volume);
+        return;
+      }
 
-    if (client) {
-      client.publish('ruspeaker/command/volume', volume.toString());
-    }
-  }, [client, dummyMode]);
+      if (client) {
+        client.publish("ruspeaker/command/volume", volume.toString());
+      }
+    },
+    [client, dummyMode]
+  );
 
-  const setSource = useCallback((source: string) => {
-    if (dummyMode) {
-      updateDummySource(source);
-      return;
-    }
+  const setSource = useCallback(
+    (source: string) => {
+      // Track manual source changes - set BEFORE any early returns
+      lastManualSourceChangeRef.current = Date.now();
 
-    if (client) {
-      client.publish('ruspeaker/command/source', source);
-    }
-  }, [client, dummyMode]);
+      if (dummyMode) {
+        updateDummySource(source);
+        return;
+      }
+
+      if (client) {
+        client.publish("ruspeaker/command/source", source);
+      }
+    },
+    [client, dummyMode]
+  );
 
   const shutdown = useCallback(() => {
     if (dummyMode) {
@@ -489,7 +557,7 @@ export function useMQTT() {
     }
 
     if (client) {
-      client.publish('ruspeaker/command/shutdown', 'now');
+      client.publish("ruspeaker/command/shutdown", "now");
     }
   }, [client, dummyMode]);
 
@@ -500,30 +568,33 @@ export function useMQTT() {
     }
 
     if (client) {
-      client.publish('ruspeaker/command/restart', 'now');
+      client.publish("ruspeaker/command/restart", "now");
     }
   }, [client, dummyMode]);
 
-  const freezeSpotifyProgress = useCallback((resetPosition = false) => {
-    scheduleFreezeFallback();
+  const freezeSpotifyProgress = useCallback(
+    (resetPosition = false) => {
+      scheduleFreezeFallback();
 
-    if (dummyMode) {
-      dummyFreezeSpotifyProgress(resetPosition);
-      return;
-    }
+      if (dummyMode) {
+        dummyFreezeSpotifyProgress(resetPosition);
+        return;
+      }
 
-    setState(prev => ({
-      ...prev,
-      spotify: {
-        ...prev.spotify,
-        progressFrozen: true,
-        timestamp: 0,
-        position: resetPosition ? 0 : prev.spotify.position,
-        rawPosition: resetPosition ? 0 : prev.spotify.rawPosition,
-        serverTimestamp: null,
-      },
-    }));
-  }, [dummyMode, scheduleFreezeFallback]);
+      setState((prev) => ({
+        ...prev,
+        spotify: {
+          ...prev.spotify,
+          progressFrozen: true,
+          timestamp: 0,
+          position: resetPosition ? 0 : prev.spotify.position,
+          rawPosition: resetPosition ? 0 : prev.spotify.rawPosition,
+          serverTimestamp: null,
+        },
+      }));
+    },
+    [dummyMode, scheduleFreezeFallback]
+  );
 
   // Client-side progress tracking for smooth progress bar (Spotify only)
   useEffect(() => {
@@ -532,7 +603,7 @@ export function useMQTT() {
     }
 
     if (
-      state.spotify.state !== 'playing' ||
+      state.spotify.state !== "playing" ||
       state.spotify.duration === 0 ||
       state.spotify.progressFrozen
     ) {
@@ -540,9 +611,9 @@ export function useMQTT() {
     }
 
     const interval = setInterval(() => {
-      setState(prev => {
+      setState((prev) => {
         if (
-          prev.spotify.state !== 'playing' ||
+          prev.spotify.state !== "playing" ||
           prev.spotify.timestamp === 0 ||
           prev.spotify.progressFrozen
         ) {
@@ -557,18 +628,29 @@ export function useMQTT() {
         }
 
         const projectedPosition = prev.spotify.position + elapsed;
-        const clampedPosition = Math.min(projectedPosition, prev.spotify.duration);
+        const clampedPosition = Math.min(
+          projectedPosition,
+          prev.spotify.duration
+        );
 
         if (clampedPosition >= prev.spotify.duration) {
           return {
             ...prev,
-            spotify: { ...prev.spotify, position: prev.spotify.duration, timestamp: now }
+            spotify: {
+              ...prev.spotify,
+              position: prev.spotify.duration,
+              timestamp: now,
+            },
           };
         }
 
         return {
           ...prev,
-          spotify: { ...prev.spotify, position: clampedPosition, timestamp: now }
+          spotify: {
+            ...prev.spotify,
+            position: clampedPosition,
+            timestamp: now,
+          },
         };
       });
     }, 100);
@@ -587,6 +669,75 @@ export function useMQTT() {
       clearFreezeTimeout();
     };
   }, [clearFreezeTimeout]);
+
+  // Automatically switch source based on what's actively playing
+  // Extract values to ensure stable dependency array
+  const bluetoothActive = state.bluetooth.active;
+  const bluetoothState = state.bluetooth.state;
+  const bluetoothTrack = state.bluetooth.track || "";
+  const spotifyState = state.spotify.state;
+  const spotifyTrack = state.spotify.track || "";
+  const currentSource = state.source;
+
+  useEffect(() => {
+    if (dummyMode) {
+      return;
+    }
+
+    // Don't auto-switch if user manually changed source in the last 3 seconds
+    const now = Date.now();
+    const lastManualChange = lastManualSourceChangeRef.current;
+    if (lastManualChange !== null && now - lastManualChange < 3000) {
+      return;
+    }
+
+    // More strict detection: only auto-switch if we have clear evidence of what's playing
+    // Require both track data AND playing state to be confident
+    const bluetoothPlaying =
+      bluetoothActive &&
+      bluetoothState === "playing" &&
+      Boolean(bluetoothTrack);
+
+    const spotifyPlaying = spotifyState === "playing" && Boolean(spotifyTrack);
+
+    // Determine the active source based on what's actively playing
+    // Only switch if we have clear evidence (playing state + track data)
+    let activeSource: string | null = null;
+
+    if (bluetoothPlaying && !spotifyPlaying) {
+      // Bluetooth is clearly playing and Spotify is not
+      activeSource = "bluetooth";
+    } else if (spotifyPlaying && !bluetoothPlaying) {
+      // Spotify is clearly playing and Bluetooth is not
+      activeSource = "spotify";
+    }
+    // If both are playing or neither is clearly playing, don't auto-switch
+    // Trust the current source or wait for ruspeaker/source/current from speaker
+
+    // Only update if we have a clear active source and it's different from current
+    if (activeSource && activeSource !== currentSource) {
+      if (mqttDebug) {
+        console.debug(
+          `[MQTT] Auto-switching source from "${currentSource}" to "${activeSource}" (bluetoothPlaying: ${bluetoothPlaying}, spotifyPlaying: ${spotifyPlaying})`
+        );
+      }
+      // Only update the local state, don't send a command to the speaker
+      // The speaker should already be on the correct source
+      setState((prev) => ({
+        ...prev,
+        source: activeSource!,
+      }));
+    }
+  }, [
+    dummyMode,
+    mqttDebug,
+    bluetoothActive,
+    bluetoothState,
+    bluetoothTrack,
+    spotifyState,
+    spotifyTrack,
+    currentSource,
+  ]);
 
   return {
     ...state,

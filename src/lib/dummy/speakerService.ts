@@ -90,6 +90,17 @@ function createInitialSnapshot(index: number): DummySnapshot {
     availableSources: ["spotify", "line-in", "aux"],
     health: { ...baseHealth },
     spotify: mqttSpotify,
+    bluetooth: {
+      track: "",
+      artist: "",
+      album: "",
+      duration: 0,
+      position: 0,
+      state: "idle",
+      artwork: "",
+      active: false,
+      devices: [],
+    },
   };
 
   const spotifyState: SpotifyState = {
