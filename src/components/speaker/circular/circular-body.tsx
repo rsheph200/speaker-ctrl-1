@@ -6,6 +6,7 @@ import { CircleSpeakerVisualizer } from "@/components/speaker/base";
 import { CircularProgress } from "./circular-progress";
 import { CircularPlayerControls } from "./circular-player-controls";
 import { CircularTrackDisplay } from "./circular-track-display";
+import type { SourceMode } from "@/lib/sourceModes";
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -29,6 +30,7 @@ interface SpeakerBodyProps {
   authenticated: boolean;
   volume: number;
   spotifyVolumeLevel: number;
+  mode: SourceMode;
   onLogin: () => void;
   onPlayPause: () => void;
   onNext: () => void;
@@ -57,11 +59,15 @@ export function SpeakerBody({
   onPrevious,
   onVolumeChange,
   onSpotifyVolumeChange,
+  mode,
 }: SpeakerBodyProps) {
   const artworkColor = useArtworkColor(artwork);
 
   return (
-    <div className="flex flex-col w-screen h-full md:h-auto items-center justify-between px-2 gap-2 my-12">
+    <div
+      className={`flex flex-col w-screen h-full md:h-auto items-center justify-between px-2 gap-2 my-12 ${mode.className || ""}`}
+      data-mode={mode.id}
+    >
       <div className="rounded-full w-[672px] h-[672px] relative overflow-visible">
         <div className="absolute inset-0 flex items-center justify-center z-0">
           <CircleSpeakerVisualizer
@@ -79,6 +85,7 @@ export function SpeakerBody({
               track={track}
               artist={artist}
               album={album}
+              source={mode.id}
             />
           </div>
 
@@ -99,7 +106,7 @@ export function SpeakerBody({
         </div>
       </div>
 
-      {mounted && showNowPlaying && (
+      {mounted && showNowPlaying && mode.showControls && (
         <CircularPlayerControls
           resolvedState={resolvedState}
           authenticated={authenticated}

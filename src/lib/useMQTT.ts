@@ -45,6 +45,7 @@ export interface MQTTState {
     state: "playing" | "paused" | "stopped" | "idle";
     artwork: string;
     active: boolean;
+    timestamp: number; // Add timestamp for position interpolation
     devices: Array<{
       source: string;
       mac: string;
@@ -52,6 +53,11 @@ export interface MQTTState {
       connected: boolean;
       metadata?: any;
     }>;
+  };
+  nowPlaying: {
+    source: string; // Derived from unified topic or current source
+    device: string; // Device name for Bluetooth
+    lastUnifiedUpdate: number; // Timestamp of last unified topic update
   };
 }
 
@@ -88,7 +94,13 @@ export function useMQTT() {
       state: "idle",
       artwork: "",
       active: false,
+      timestamp: 0,
       devices: [],
+    },
+    nowPlaying: {
+      source: "none",
+      device: "",
+      lastUnifiedUpdate: 0,
     },
   });
 
@@ -96,6 +108,7 @@ export function useMQTT() {
   const dummyUnsubscribeRef = useRef<(() => void) | null>(null);
   const freezeTimeoutRef = useRef<number | null>(null);
   const lastManualSourceChangeRef = useRef<number | null>(null);
+  const lastUnifiedUpdateRef = useRef<number>(0); // Track last unified topic update
 
   const clearFreezeTimeout = useCallback(() => {
     if (freezeTimeoutRef.current !== null) {
@@ -311,12 +324,160 @@ export function useMQTT() {
           console.error("Failed to parse health JSON:", message, error);
         }
       }
+      // Unified now_playing topic
+      else if (topic === "ruspeaker/now_playing") {
+        try {
+          const data = JSON.parse(message);
+          const now = Date.now();
+          lastUnifiedUpdateRef.current = now;
+
+          // Validate required fields
+          if (
+            typeof data.source !== "string" ||
+            typeof data.playing !== "boolean"
+          ) {
+            console.warn(
+              "[MQTT] Invalid unified topic data: missing source or playing field"
+            );
+            return;
+          }
+
+          // Validate source
+          const validSources = ["bluetooth", "spotify", "none"];
+          const source = data.source.toLowerCase();
+          if (!validSources.includes(source)) {
+            console.warn(
+              `[MQTT] Invalid unified topic source: ${data.source}, expected one of: ${validSources.join(", ")}`
+            );
+            return;
+          }
+
+          // Validate and convert duration/position to milliseconds
+          const duration =
+            typeof data.duration === "number"
+              ? toMilliseconds(data.duration)
+              : 0;
+          const position =
+            typeof data.position === "number"
+              ? toMilliseconds(data.position)
+              : 0;
+
+          // Validate unified topic source matches state.source (from ruspeaker/source/current)
+          setState((prev) => {
+            if (source !== prev.source && source !== "none") {
+              console.warn(
+                `[MQTT] Unified topic source "${source}" doesn't match state.source "${prev.source}" - trusting state.source as authoritative`
+              );
+            }
+
+            // Update nowPlaying metadata
+            const nowPlaying = {
+              source: source,
+              device: typeof data.device === "string" ? data.device : "",
+              lastUnifiedUpdate: now,
+            };
+
+            // Populate existing state based on source
+            if (source === "spotify") {
+              const playingState = data.playing ? "playing" : "paused";
+              const serverTimestamp = data.timestamp
+                ? new Date(data.timestamp).getTime()
+                : null;
+
+              return {
+                ...prev,
+                nowPlaying,
+                spotify: {
+                  ...prev.spotify,
+                  track:
+                    typeof data.track === "string"
+                      ? data.track
+                      : prev.spotify.track,
+                  artist:
+                    typeof data.artist === "string"
+                      ? data.artist
+                      : prev.spotify.artist,
+                  album:
+                    typeof data.album === "string"
+                      ? data.album
+                      : prev.spotify.album,
+                  duration: duration || prev.spotify.duration,
+                  position: position || prev.spotify.position,
+                  rawPosition: position || prev.spotify.rawPosition,
+                  artwork:
+                    typeof data.artwork === "string"
+                      ? data.artwork
+                      : prev.spotify.artwork,
+                  state: playingState,
+                  timestamp: now,
+                  serverTimestamp:
+                    serverTimestamp || prev.spotify.serverTimestamp,
+                },
+              };
+            } else if (source === "bluetooth") {
+              const playingState = data.playing ? "playing" : "paused";
+
+              return {
+                ...prev,
+                nowPlaying,
+                bluetooth: {
+                  ...prev.bluetooth,
+                  track:
+                    typeof data.track === "string"
+                      ? data.track
+                      : prev.bluetooth.track,
+                  artist:
+                    typeof data.artist === "string"
+                      ? data.artist
+                      : prev.bluetooth.artist,
+                  album:
+                    typeof data.album === "string"
+                      ? data.album
+                      : prev.bluetooth.album,
+                  duration: duration || prev.bluetooth.duration,
+                  position: position || prev.bluetooth.position,
+                  artwork:
+                    typeof data.artwork === "string"
+                      ? data.artwork
+                      : prev.bluetooth.artwork,
+                  state: playingState,
+                  active: true,
+                  timestamp: now,
+                },
+              };
+            } else {
+              // source === "none"
+              return {
+                ...prev,
+                nowPlaying,
+              };
+            }
+          });
+        } catch (error) {
+          console.error("[MQTT] Failed to parse unified topic JSON:", error);
+        }
+      }
       // Spotify topics
       else if (topic === "ruspeaker/spotify/track") {
-        setState((prev) => ({
-          ...prev,
-          spotify: { ...prev.spotify, track: message },
-        }));
+        // Block individual topic updates if unified topic was received recently (within 10 seconds)
+        const now = Date.now();
+        setState((prev) => {
+          if (
+            now - lastUnifiedUpdateRef.current < 10000 &&
+            prev.source === "spotify"
+          ) {
+            if (mqttDebug) {
+              console.debug(
+                "[MQTT] Blocking individual spotify topic update (unified topic active)"
+              );
+            }
+            return prev; // Return unchanged state
+          }
+          return {
+            ...prev,
+            spotify: { ...prev.spotify, track: message },
+          };
+        });
       } else if (topic === "ruspeaker/spotify/artist") {
         setState((prev) => ({
           ...prev,
@@ -435,10 +596,25 @@ export function useMQTT() {
       }
       // Bluetooth topics
       else if (topic === "ruspeaker/bluetooth/track") {
-        setState((prev) => ({
-          ...prev,
-          bluetooth: { ...prev.bluetooth, track: message },
-        }));
+        // Block individual topic updates if unified topic was received recently (within 10 seconds)
+        const now = Date.now();
+        setState((prev) => {
+          if (
+            now - lastUnifiedUpdateRef.current < 10000 &&
+            prev.source === "bluetooth"
+          ) {
+            if (mqttDebug) {
+              console.debug(
+                "[MQTT] Blocking individual bluetooth topic update (unified topic active)"
+              );
+            }
+            return prev; // Return unchanged state
+          }
+          return {
+            ...prev,
+            bluetooth: { ...prev.bluetooth, track: message },
+          };
+        });
       } else if (topic === "ruspeaker/bluetooth/artist") {
         setState((prev) => ({
           ...prev,
@@ -457,12 +633,27 @@ export function useMQTT() {
           bluetooth: { ...prev.bluetooth, duration },
         }));
       } else if (topic === "ruspeaker/bluetooth/position") {
-        const parsed = parseInt(message, 10) || 0;
-        const position = toMilliseconds(parsed);
-        setState((prev) => ({
-          ...prev,
-          bluetooth: { ...prev.bluetooth, position },
-        }));
+        // Block individual topic updates if unified topic was received recently (within 10 seconds)
+        const now = Date.now();
+        setState((prev) => {
+          if (
+            now - lastUnifiedUpdateRef.current < 10000 &&
+            prev.source === "bluetooth"
+          ) {
+            if (mqttDebug) {
+              console.debug(
+                "[MQTT] Blocking individual bluetooth position update (unified topic active)"
+              );
+            }
+            return prev; // Return unchanged state
+          }
+          const parsed = parseInt(message, 10) || 0;
+          const position = toMilliseconds(parsed);
+          return {
+            ...prev,
+            bluetooth: { ...prev.bluetooth, position, timestamp: now },
+          };
+        });
       } else if (topic === "ruspeaker/bluetooth/state") {
         setState((prev) => ({
           ...prev,
@@ -661,6 +852,68 @@ export function useMQTT() {
     state.spotify.timestamp,
     state.spotify.duration,
     state.spotify.progressFrozen,
+    dummyMode,
+  ]);
+
+  // Client-side progress tracking for smooth progress bar (Bluetooth)
+  useEffect(() => {
+    if (dummyMode) {
+      return;
+    }
+
+    if (state.bluetooth.state !== "playing" || state.bluetooth.duration === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setState((prev) => {
+        if (
+          prev.bluetooth.state !== "playing" ||
+          prev.bluetooth.timestamp === 0
+        ) {
+          return prev;
+        }
+
+        const now = Date.now();
+        const elapsed = now - prev.bluetooth.timestamp;
+
+        if (elapsed <= 0) {
+          return prev;
+        }
+
+        const projectedPosition = prev.bluetooth.position + elapsed;
+        const clampedPosition = Math.min(
+          projectedPosition,
+          prev.bluetooth.duration
+        );
+
+        if (clampedPosition >= prev.bluetooth.duration) {
+          return {
+            ...prev,
+            bluetooth: {
+              ...prev.bluetooth,
+              position: prev.bluetooth.duration,
+              timestamp: now,
+            },
+          };
+        }
+
+        return {
+          ...prev,
+          bluetooth: {
+            ...prev.bluetooth,
+            position: clampedPosition,
+            timestamp: now,
+          },
+        };
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [
+    state.bluetooth.state,
+    state.bluetooth.timestamp,
+    state.bluetooth.duration,
     dummyMode,
   ]);
 

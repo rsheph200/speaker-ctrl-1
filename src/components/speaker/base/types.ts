@@ -5,7 +5,8 @@ export interface NowPlayingInfo {
   artwork?: string | null;
   durationMs?: number | null;
   positionMs?: number | null;
-  state?: 'playing' | 'paused' | 'idle' | (string & {});
+  state?: "playing" | "paused" | "idle" | (string & {});
+  source?: "bluetooth" | "spotify" | "none" | string; // Source mode
 }
 
 export interface SpotifyControlActions {
