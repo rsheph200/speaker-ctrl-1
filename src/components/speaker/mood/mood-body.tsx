@@ -7,6 +7,7 @@ import { SpeakerVisualizer } from "@/components/speaker/base";
 import { SpeakerNowPlayingArtwork } from "@/components/speaker/base/player-controls/SpeakerNowPlayingArtwork";
 import { MoodProgress } from "./mood-progress";
 import { MoodPlayerControls } from "./mood-player-controls";
+import type { SourceMode } from "@/lib/sourceModes";
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -30,6 +31,7 @@ interface SpeakerBodyProps {
   authenticated: boolean;
   volume: number;
   spotifyVolumeLevel: number;
+  mode: SourceMode;
   onLogin: () => void;
   onPlayPause: () => void;
   onNext: () => void;
@@ -58,13 +60,15 @@ export function SpeakerBody({
   onPrevious,
   onVolumeChange,
   onSpotifyVolumeChange,
+  mode,
 }: SpeakerBodyProps) {
   const artworkColor = useArtworkColor(artwork);
 
   return (
     <div
-      className="flex flex-col h-auto items-center justify-between p-2 gap-2 my-12 mx-2 bg-[#04090D] rounded-xl"
+      className={`flex flex-col h-auto items-center justify-between p-2 gap-2 my-12 mx-2 bg-[#04090D] rounded-xl ${mode.className || ""}`}
       style={{ width: "calc(100% - 1rem)", maxWidth: "660px" }}
+      data-mode={mode.id}
     >
       <div className="w-full">
         <div className="flex flex-col items-center justify-between h-full gap-8">
@@ -104,6 +108,7 @@ export function SpeakerBody({
               {mounted && showNowPlaying && (
                 <SpeakerNowPlayingArtwork
                   src={artwork ?? undefined}
+                  source={mode.id}
                   className="sm:h-12 h-10 w-10 sm:w-12 rounded-lg object-cover"
                 />
               )}
@@ -127,7 +132,7 @@ export function SpeakerBody({
         </div>
       </div>
 
-      {mounted && showNowPlaying && (
+      {mounted && showNowPlaying && mode.showControls && (
         <MoodPlayerControls
           resolvedState={resolvedState}
           authenticated={authenticated}

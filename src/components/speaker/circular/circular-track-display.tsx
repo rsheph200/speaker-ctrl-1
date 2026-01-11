@@ -8,6 +8,7 @@ interface TrackInfo {
   album: string | null;
   artist: string | null;
   artwork: string | null;
+  source?: string | null;
 }
 
 interface CircularTrackDisplayProps {
@@ -17,6 +18,7 @@ interface CircularTrackDisplayProps {
   track: string | null;
   artist: string | null;
   album: string | null;
+  source?: string | null;
 }
 
 function TrackRow({
@@ -24,6 +26,7 @@ function TrackRow({
   album,
   artist,
   artwork,
+  source,
   opacity = 1,
   animate = false,
 }: TrackInfo & { opacity?: number; animate?: boolean }) {
@@ -78,6 +81,7 @@ function TrackRow({
         {showArtwork && artwork ? (
           <SpeakerNowPlayingArtwork
             src={artwork}
+            source={source}
             className="h-4 w-4 rounded-full object-cover flex-shrink-0"
           />
         ) : (
@@ -95,6 +99,7 @@ export function CircularTrackDisplay({
   track,
   artist,
   album,
+  source,
 }: CircularTrackDisplayProps) {
   const [trackList, setTrackList] = useState<TrackInfo[]>([]);
   const lastTrackRef = useRef<string | null>(null);
@@ -121,6 +126,7 @@ export function CircularTrackDisplay({
             album: latestValuesRef.current.album,
             artist: latestValuesRef.current.artist,
             artwork: latestValuesRef.current.artwork,
+            source: source,
           },
         ]);
         lastTrackRef.current = track;
@@ -142,7 +148,7 @@ export function CircularTrackDisplay({
         });
       }
     }
-  }, [mounted, showNowPlaying, track, album, artist, artwork]);
+  }, [mounted, showNowPlaying, track, album, artist, artwork, source]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-3">
@@ -155,6 +161,7 @@ export function CircularTrackDisplay({
             album={item.album}
             artist={item.artist}
             artwork={item.artwork}
+            source={item.source || source}
             opacity={isCurrent ? 1 : 0.4}
             animate={isCurrent}
           />

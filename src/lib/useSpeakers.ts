@@ -15,9 +15,21 @@ export function useSpeakers() {
         const data = await response.json();
         setSpeakers(data.speakers || []);
         setConnected(data.connected || false);
+      } else {
+        // Handle non-ok responses gracefully
+        console.warn("[useSpeakers] API returned non-ok status:", response.status);
       }
     } catch (error) {
-      console.error("[useSpeakers] Error fetching speakers:", error);
+      // Only log if it's not a network error (which can happen during dev)
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        // This can happen if the server isn't ready or during SSR
+        // Silently handle it - the interval will retry
+        if (typeof window !== "undefined") {
+          console.debug("[useSpeakers] Fetch failed (server may not be ready)");
+        }
+      } else {
+        console.error("[useSpeakers] Error fetching speakers:", error);
+      }
     } finally {
       setLoading(false);
     }

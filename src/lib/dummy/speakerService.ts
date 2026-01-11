@@ -99,7 +99,13 @@ function createInitialSnapshot(index: number): DummySnapshot {
       state: "idle",
       artwork: "",
       active: false,
+      timestamp: 0,
       devices: [],
+    },
+    nowPlaying: {
+      source: "none",
+      device: "",
+      lastUnifiedUpdate: 0,
     },
   };
 
