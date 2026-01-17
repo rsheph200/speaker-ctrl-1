@@ -34,8 +34,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    // Redirect to 127.0.0.1 explicitly to avoid localhost issue
-    const redirectUrl = new URL('http://127.0.0.1:3000/');
+    const redirectUrl = new URL('/', request.nextUrl.origin);
     const responseWithCookie = NextResponse.redirect(redirectUrl);
     
     // Store access token (expires in 1 hour)
@@ -47,14 +46,16 @@ export async function GET(request: NextRequest) {
       path: '/',
     });
     
-    // Store refresh token (long-lived)
-    responseWithCookie.cookies.set('spotify_refresh_token', data.refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      path: '/',
-    });
+    if (data.refresh_token) {
+      // Store refresh token (long-lived)
+      responseWithCookie.cookies.set('spotify_refresh_token', data.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/',
+      });
+    }
 
     // Store expiry time so we know when to refresh
     responseWithCookie.cookies.set('spotify_token_expiry', 

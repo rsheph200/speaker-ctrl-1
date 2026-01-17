@@ -12,6 +12,7 @@ import { SpeakerBody as CircularSpeakerBody } from "@/components/speaker/circula
 import { MoodBackground } from "@/components/speaker/mood/mood-background";
 import { PageBackground } from "@/components/page/PageBackground";
 import { useAppSettings } from "@/context/AppSettingsContext";
+import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
 
 export default function SpeakerOnePage() {
   const [visualizerResetTrigger, setVisualizerResetTrigger] = useState<
@@ -163,6 +164,7 @@ export default function SpeakerOnePage() {
 
   const content = (
     <div className="flex flex-col mx-auto w-full h-full items-center justify-between">
+      <ThemeColorUpdater />
       <SpeakerHeader
         health={health}
         source={source}
