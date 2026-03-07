@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import { useMQTT } from "@/lib/useMQTT";
 import { useSpotify } from "@/lib/useSpotify";
@@ -39,16 +39,14 @@ export default function SpeakerOnePage() {
   const spotifyControl = useSpotify();
   const { theme } = useAppSettings();
 
-  // Get mode config based on current source (primary source of truth)
-  const mode = useMemo(() => getModeConfig(source), [source]);
-
-  // Helper to get display data based on current source.
-  // Prefers MQTT (real-time from speaker), falls back to Spotify API polling.
-  const displayData = useMemo(() => {
-    if (source === "spotify") {
-      const mqttActivelyPlaying = Boolean(spotify.track) && spotify.state === "playing";
-      if (mqttActivelyPlaying) {
-        return {
+  // Display data: MQTT when the speaker is actively playing, Spotify API as fallback.
+  // Also tracks which source the display data came from for mode/controls.
+  const { displayData, displaySource } = (() => {
+    // MQTT Spotify: use when the speaker is actively playing Spotify
+    if (source === "spotify" && spotify.state === "playing" && Boolean(spotify.track)) {
+      return {
+        displaySource: "spotify",
+        displayData: {
           track: spotify.track,
           artist: spotify.artist,
           album: spotify.album,
@@ -56,11 +54,31 @@ export default function SpeakerOnePage() {
           duration: spotify.duration,
           position: spotify.position,
           state: spotify.state,
-        };
-      }
+        },
+      };
+    }
 
-      if (spotifyControl.authenticated && spotifyControl.track) {
-        return {
+    // MQTT Bluetooth: use when source is bluetooth with track data
+    if (source === "bluetooth" && Boolean(bluetooth.track) && bluetooth.state !== "idle") {
+      return {
+        displaySource: "bluetooth",
+        displayData: {
+          track: bluetooth.track,
+          artist: bluetooth.artist,
+          album: bluetooth.album,
+          artwork: bluetooth.artwork,
+          duration: bluetooth.duration,
+          position: bluetooth.position,
+          state: bluetooth.state,
+        },
+      };
+    }
+
+    // Spotify API fallback: works regardless of speaker source
+    if (spotifyControl.authenticated && spotifyControl.track) {
+      return {
+        displaySource: "spotify",
+        displayData: {
           track: spotifyControl.track ?? "",
           artist: spotifyControl.artist ?? "",
           album: spotifyControl.album ?? "",
@@ -70,52 +88,25 @@ export default function SpeakerOnePage() {
           state: spotifyControl.playing
             ? ("playing" as const)
             : ("paused" as const),
-        };
-      }
-
-      return {
-        track: "",
-        artist: "",
-        album: "",
-        artwork: null,
-        duration: 0,
-        position: 0,
-        state: "idle" as const,
-      };
-    } else if (source === "bluetooth") {
-      return {
-        track: bluetooth.track,
-        artist: bluetooth.artist,
-        album: bluetooth.album,
-        artwork: bluetooth.artwork,
-        duration: bluetooth.duration,
-        position: bluetooth.position,
-        state: bluetooth.state,
-      };
-    } else {
-      return {
-        track: "",
-        artist: "",
-        album: "",
-        artwork: null,
-        duration: 0,
-        position: 0,
-        state: "idle" as const,
+        },
       };
     }
-  }, [
-    source,
-    spotify,
-    bluetooth,
-    spotifyControl.authenticated,
-    spotifyControl.playing,
-    spotifyControl.track,
-    spotifyControl.artist,
-    spotifyControl.album,
-    spotifyControl.albumArt,
-    spotifyControl.duration,
-    spotifyControl.progress,
-  ]);
+
+    return {
+      displaySource: source,
+      displayData: {
+        track: "",
+        artist: "",
+        album: "",
+        artwork: null,
+        duration: 0,
+        position: 0,
+        state: "idle" as const,
+      },
+    };
+  })();
+
+  const mode = getModeConfig(displaySource);
 
   useEffect(() => {
     setMounted(true);
@@ -193,11 +184,9 @@ export default function SpeakerOnePage() {
     },
   };
 
-  // Show now playing if we have track data and source is not "none"
   const showNowPlaying =
     Boolean(displayData.track) &&
-    displayData.state !== "idle" &&
-    source !== "none";
+    displayData.state !== "idle";
   const spotifyVolumeLevel = Number.isFinite(spotifyControl.volume)
     ? Math.round(spotifyControl.volume)
     : 0;

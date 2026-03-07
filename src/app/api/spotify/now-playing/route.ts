@@ -16,7 +16,6 @@ export async function GET() {
   });
 
   if (response.status === 204 || response.status === 202) {
-    console.log('[Spotify] No active playback (status %d)', response.status);
     return NextResponse.json({ playing: false });
   }
 
@@ -31,7 +30,7 @@ export async function GET() {
   const progress = data.progress_ms || 0;
   const duration = data.item?.duration_ms || 0;
 
-  const result = {
+  return NextResponse.json({
     playing: data.is_playing,
     track: data.item?.name,
     artist: data.item?.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
@@ -40,7 +39,5 @@ export async function GET() {
     progress: progress,
     duration: duration,
     volume: data.device?.volume_percent ?? null,
-  };
-  console.log('[Spotify] Active playback:', result.playing, '-', result.track, 'by', result.artist);
-  return NextResponse.json(result);
+  });
 }
