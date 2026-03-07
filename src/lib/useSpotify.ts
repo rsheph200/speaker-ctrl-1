@@ -82,6 +82,10 @@ export function useSpotify() {
           return;
         }
 
+        if (!res.ok) {
+          return;
+        }
+
         const data = await res.json();
         lastFetchTime.current = Date.now();
         lastServerProgress.current = data.progress || 0;
@@ -91,6 +95,21 @@ export function useSpotify() {
             typeof data.playing === 'boolean' ? data.playing : prev.playing;
           const nextVolume =
             typeof data.volume === 'number' ? data.volume : prev.volume;
+
+          if (!nextPlaying && !data.track) {
+            return {
+              ...prev,
+              authenticated: true,
+              playing: false,
+              track: undefined,
+              artist: undefined,
+              album: undefined,
+              albumArt: undefined,
+              progress: undefined,
+              duration: undefined,
+              volume: nextVolume,
+            };
+          }
 
           return {
             ...prev,

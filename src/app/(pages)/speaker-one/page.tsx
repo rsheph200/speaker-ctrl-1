@@ -42,17 +42,45 @@ export default function SpeakerOnePage() {
   // Get mode config based on current source (primary source of truth)
   const mode = useMemo(() => getModeConfig(source), [source]);
 
-  // Helper to get display data based on current source
+  // Helper to get display data based on current source.
+  // Prefers MQTT (real-time from speaker), falls back to Spotify API polling.
   const displayData = useMemo(() => {
     if (source === "spotify") {
+      const mqttActivelyPlaying = Boolean(spotify.track) && spotify.state === "playing";
+      if (mqttActivelyPlaying) {
+        return {
+          track: spotify.track,
+          artist: spotify.artist,
+          album: spotify.album,
+          artwork: spotify.artwork,
+          duration: spotify.duration,
+          position: spotify.position,
+          state: spotify.state,
+        };
+      }
+
+      if (spotifyControl.authenticated && spotifyControl.track) {
+        return {
+          track: spotifyControl.track ?? "",
+          artist: spotifyControl.artist ?? "",
+          album: spotifyControl.album ?? "",
+          artwork: spotifyControl.albumArt ?? null,
+          duration: spotifyControl.duration ?? 0,
+          position: spotifyControl.progress ?? 0,
+          state: spotifyControl.playing
+            ? ("playing" as const)
+            : ("paused" as const),
+        };
+      }
+
       return {
-        track: spotify.track,
-        artist: spotify.artist,
-        album: spotify.album,
-        artwork: spotify.artwork,
-        duration: spotify.duration,
-        position: spotify.position,
-        state: spotify.state,
+        track: "",
+        artist: "",
+        album: "",
+        artwork: null,
+        duration: 0,
+        position: 0,
+        state: "idle" as const,
       };
     } else if (source === "bluetooth") {
       return {
@@ -65,7 +93,6 @@ export default function SpeakerOnePage() {
         state: bluetooth.state,
       };
     } else {
-      // source === "none" or unknown
       return {
         track: "",
         artist: "",
@@ -76,7 +103,19 @@ export default function SpeakerOnePage() {
         state: "idle" as const,
       };
     }
-  }, [source, spotify, bluetooth]);
+  }, [
+    source,
+    spotify,
+    bluetooth,
+    spotifyControl.authenticated,
+    spotifyControl.playing,
+    spotifyControl.track,
+    spotifyControl.artist,
+    spotifyControl.album,
+    spotifyControl.albumArt,
+    spotifyControl.duration,
+    spotifyControl.progress,
+  ]);
 
   useEffect(() => {
     setMounted(true);
@@ -124,7 +163,7 @@ export default function SpeakerOnePage() {
     ? pendingPlaying
       ? "playing"
       : "paused"
-    : (spotify.state ?? "idle");
+    : displayData.state ?? "idle";
 
   const triggerVisualizerReset = () => {
     setVisualizerResetTrigger(Date.now());
@@ -133,11 +172,12 @@ export default function SpeakerOnePage() {
   const spotifyActions = {
     playPause: () => {
       freezeSpotifyProgress(false);
-      const isMqttPlaying = spotify.state === "playing";
       const currentPlaying =
         typeof spotifyControl.pendingPlaying === "boolean"
           ? spotifyControl.pendingPlaying
-          : isMqttPlaying;
+          : spotifyControl.authenticated
+            ? spotifyControl.playing
+            : spotify.state === "playing";
       const nextPlaying = !currentPlaying;
       return spotifyControl.playPause(nextPlaying);
     },

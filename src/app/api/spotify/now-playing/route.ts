@@ -16,30 +16,7 @@ export async function GET() {
   });
 
   if (response.status === 204 || response.status === 202) {
-    // Try to get recently played track
-    const recentResponse = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=1', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-    
-    if (recentResponse.ok) {
-      const recentData = await recentResponse.json();
-      const lastTrack = recentData.items?.[0]?.track;
-      
-      if (lastTrack) {
-        return NextResponse.json({
-          playing: false,
-          track: lastTrack.name,
-          artist: lastTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
-          album: lastTrack.album?.name,
-          albumArt: lastTrack.album?.images?.[0]?.url,
-          progress: 0,
-          duration: lastTrack.duration_ms,
-        });
-      }
-    }
-    
+    console.log('[Spotify] No active playback (status %d)', response.status);
     return NextResponse.json({ playing: false });
   }
 
@@ -54,7 +31,7 @@ export async function GET() {
   const progress = data.progress_ms || 0;
   const duration = data.item?.duration_ms || 0;
 
-  return NextResponse.json({
+  const result = {
     playing: data.is_playing,
     track: data.item?.name,
     artist: data.item?.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
@@ -63,5 +40,7 @@ export async function GET() {
     progress: progress,
     duration: duration,
     volume: data.device?.volume_percent ?? null,
-  });
+  };
+  console.log('[Spotify] Active playback:', result.playing, '-', result.track, 'by', result.artist);
+  return NextResponse.json(result);
 }

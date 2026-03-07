@@ -1,14 +1,14 @@
 export function getSpotifyRedirectUri(request?: Request): string {
+    // Explicit override takes priority so the URI always matches
+    // what's registered in the Spotify Developer Dashboard
+    if (process.env.SPOTIFY_REDIRECT_URI) {
+      return process.env.SPOTIFY_REDIRECT_URI;
+    }
+
     // Derive from the incoming request so it works on any host/port/IP
-    // (phone on local network, Tailscale, localhost — all get the right URI)
     if (request) {
       const url = new URL(request.url);
       return `${url.protocol}//${url.host}/api/spotify/callback`;
-    }
-
-    // Explicit override (e.g. production deploy)
-    if (process.env.SPOTIFY_REDIRECT_URI) {
-      return process.env.SPOTIFY_REDIRECT_URI;
     }
 
     // Vercel
