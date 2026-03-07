@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSpotifyRedirectUri } from '@/lib/getSpotifyRedirectUri';
 
-export async function GET() {
-  const redirectUri = getSpotifyRedirectUri();
+export async function GET(request: Request) {
+  const redirectUri = getSpotifyRedirectUri(request);
 
   const scopes = [
     'user-read-playback-state',

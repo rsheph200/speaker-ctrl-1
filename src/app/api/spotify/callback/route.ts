@@ -4,7 +4,7 @@ import { getSpotifyRedirectUri } from '@/lib/getSpotifyRedirectUri';
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
 
-  const redirectUri = getSpotifyRedirectUri();
+  const redirectUri = getSpotifyRedirectUri(request);
 
   if (!code) {
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
