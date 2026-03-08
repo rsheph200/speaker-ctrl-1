@@ -90,22 +90,18 @@ export function SpeakerBody({
               )}
             </div>
           </div>
-          <div>
-            {mounted && showNowPlaying && (
-              <div className="flex-1 items-center justify-center pb-2">
-                {track && (
-                  <p className="text-2xl text-[#919090] text-center">{track}</p>
-                )}
-                {artist && (
-                  <p className="text-2xl text-[#919090] opacity-60 text-center">
-                    {artist}
-                  </p>
-                )}
-                {album && (
-                  <p className="text-2xl text-[#919090] opacity-40 text-center">
-                    {album}
-                  </p>
-                )}
+          <div className="w-full px-5">
+            {mounted && (
+              <div className="pb-2">
+                <p className={`text-2xl text-[#919090] text-center truncate transition-opacity duration-500 ${showNowPlaying ? "" : "opacity-40"}`}>
+                  {showNowPlaying && track ? track : "Play something"}
+                </p>
+                <p className={`text-2xl text-[#919090] text-center truncate transition-opacity duration-500 ${showNowPlaying ? "opacity-60" : "opacity-40"}`}>
+                  {showNowPlaying && artist ? artist : "All Ears Audio"}
+                </p>
+                <p className={`text-2xl text-[#919090] text-center truncate transition-opacity duration-500 ${showNowPlaying ? "opacity-40" : "opacity-40"}`}>
+                  {showNowPlaying && album ? album : "Sound XP"}
+                </p>
               </div>
             )}
           </div>

@@ -152,6 +152,16 @@ export function CircularTrackDisplay({
 
   return (
     <div className="flex flex-col items-center justify-center gap-3">
+      {trackList.length === 0 && mounted && (
+        <TrackRow
+          track="Play something"
+          album="All Ears Audio"
+          artist="Sound XP"
+          artwork={null}
+          source={source}
+          opacity={0.4}
+        />
+      )}
       {trackList.map((item, index) => {
         const isCurrent = index === trackList.length - 1;
         return (

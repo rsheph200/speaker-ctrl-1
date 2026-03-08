@@ -233,10 +233,10 @@ export function useMQTT() {
     }
 
     const mqttClient = mqtt.connect(brokerUrl, {
-      reconnectPeriod: 1000,
-      connectTimeout: 30000,
+      reconnectPeriod: 5000,
+      connectTimeout: 60000,
       clean: true,
-      keepalive: 20,
+      keepalive: 60,
       protocolVersion: 4,
     });
 

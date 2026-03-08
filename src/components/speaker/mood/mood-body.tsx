@@ -83,28 +83,22 @@ export function SpeakerBody({
             </div>
 
             <div className="flex-1 min-w-0 flex items-center justify-center">
-              {mounted && showNowPlaying && (
+              {mounted && (
                 <div className="w-full flex flex-col items-center justify-center pb-2 overflow-hidden">
-                  {track && (
-                    <p className="text-lg sm:text-2xl text-[#767885] text-center truncate w-full">
-                      {track}
-                    </p>
-                  )}
-                  {artist && (
-                    <p className="text-lg sm:text-2xl text-[#767885] opacity-60 text-center truncate w-full">
-                      {artist}
-                    </p>
-                  )}
-                  {album && (
-                    <p className="text-lg sm:text-2xl text-[#767885] opacity-40 text-center truncate w-full">
-                      {album}
-                    </p>
-                  )}
+                  <p className={`text-lg sm:text-2xl text-[#767885] text-center truncate w-full transition-opacity duration-500 ${showNowPlaying ? "" : "opacity-40"}`}>
+                    {showNowPlaying && track ? track : "Play something"}
+                  </p>
+                  <p className={`text-lg sm:text-2xl text-[#767885] text-center truncate w-full transition-opacity duration-500 ${showNowPlaying ? "opacity-60" : "opacity-40"}`}>
+                    {showNowPlaying && artist ? artist : "All Ears Audio"}
+                  </p>
+                  <p className={`text-lg sm:text-2xl text-[#767885] text-center truncate w-full transition-opacity duration-500 ${showNowPlaying ? "opacity-40" : "opacity-40"}`}>
+                    {showNowPlaying && album ? album : "Sound XP"}
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 w-10 sm:w-12">
               {mounted && showNowPlaying && (
                 <SpeakerNowPlayingArtwork
                   src={artwork ?? undefined}
